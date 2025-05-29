@@ -6,13 +6,15 @@ import { verifyToken } from "@/app/lib/api";
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  isLoading: boolean; // Export isLoading
+  isLoading: boolean;
+  token: string | null;
   setToken: (token: string | null) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isLoading: true,
+  token: null,
   setToken: async () => {},
 });
 
@@ -21,44 +23,53 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setTokenState] = useState<string | null>(null);
+
+
   const router = useRouter();
   const pathname = usePathname();
 
-  const setToken = useCallback(async (token: string | null) => {
-    console.log("setToken called with token:", token ? "present" : "null");
-    if (token) {
-      const valid = await verifyToken(token);
-      console.log("Token valid:", valid);
-      if (valid) {
-        localStorage.setItem("token", token);
-        setIsAuthenticated(true);
-      } else {
-        localStorage.removeItem("token");
-        setIsAuthenticated(false);
-      }
+ const setToken = useCallback(async (token: string | null) => {
+  console.log("setToken called with token:", token ? "present" : "null");
+  if (token) {
+    const valid = await verifyToken(token);
+    console.log("Token valid:", valid);
+    if (valid) {
+      localStorage.setItem("token", token);
+      setTokenState(token);
+      setIsAuthenticated(true);
     } else {
       localStorage.removeItem("token");
+      setTokenState(null);
       setIsAuthenticated(false);
     }
-  }, []);
+  } else {
+    localStorage.removeItem("token");
+    setTokenState(null);
+    setIsAuthenticated(false);
+  }
+}, []);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem("token");
-      console.log("Checking auth, token:", token ? "present" : "null");
-      if (token) {
-        const valid = await verifyToken(token);
-        console.log("Initial token valid:", valid);
-        setIsAuthenticated(valid);
-        if (!valid) {
-          localStorage.removeItem("token");
-        }
+  const checkAuth = async () => {
+    const token = localStorage.getItem("token");
+    console.log("Checking auth, token:", token ? "present" : "null");
+    if (token) {
+      const valid = await verifyToken(token);
+      console.log("Initial token valid:", valid);
+      setIsAuthenticated(valid);
+      setTokenState(valid ? token : null);
+      if (!valid) {
+        localStorage.removeItem("token");
       }
-      setIsLoading(false);
-    };
+    } else {
+      setTokenState(null);
+    }
+    setIsLoading(false);
+  };
 
-    checkAuth();
-  }, []);
+  checkAuth();
+}, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -74,8 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isAuthenticated, pathname, isLoading, router]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, setToken }}>
-      {children}
-    </AuthContext.Provider>
+   <AuthContext.Provider value={{ isAuthenticated, isLoading, token, setToken }}>
+  {children}
+</AuthContext.Provider>
+
   );
 };

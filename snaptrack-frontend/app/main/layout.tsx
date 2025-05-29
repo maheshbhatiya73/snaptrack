@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en">
-      <body className="flex flex-col min-h-screen bg-gray-50">
+      <body className="flex flex-col w-full min-h-screen bg-gray-50">
         <AuthProvider>
           {/* Header */}
           <Header toggleSidebar={toggleSidebar} />
@@ -23,9 +23,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             {/* Main Content */}
             <main
-              className={`flex-1 transition-all duration-300 ${
-                isSidebarOpen ? 'ml-52' : 'ml-16'
-              } p-6`}
+              className={`flex-1 w-full transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-20'
+                } p-6`}
             >
               {children}
             </main>
