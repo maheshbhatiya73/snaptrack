@@ -1,13 +1,15 @@
-"use client"
+"use client";
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaPlus, FaEdit, FaTrash, FaCheckCircle } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { Dialog, Transition } from '@headlessui/react';
 import { Backup, getBackups } from '@/app/lib/api';
+import { Tooltip } from "react-tooltip";
 import CreateModel from './CreateModel';
 import UpdateModel from './UpdateModel';
 import DeleteModel from './DeleteModel';
 import { useAuth } from '@/app/context/AuthContext';
+import { useToast } from '@/app/components/Toast';
 
 const Home = () => {
     const [backups, setBackups] = useState<Backup[]>([]);
@@ -18,14 +20,21 @@ const Home = () => {
     const [isUpdateOpen, setIsUpdateOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
-    const { token } = useAuth()
+    const { token } = useAuth();
+    const { addToast } = useToast();
 
     useEffect(() => {
         const fetchBackups = async () => {
-            const response = await getBackups(token, page, limit);
-            if (response.success) {
-                setBackups(response.data as Backup[]);
-                setTotal(response.total || 0);
+            try {
+                const response = await getBackups(token, page, limit);
+                if (response.success) {
+                    setBackups(response.data as Backup[]);
+                    setTotal(response.total || 0);
+                } else {
+                   console.log("something want wrong")
+                }
+            } catch (error) {
+                console.log("something want wrong")
             }
         };
         fetchBackups();
@@ -74,13 +83,12 @@ const Home = () => {
                         <AnimatePresence>
                             {backups.map((backup, idx) => (
                                 <motion.tr
-                                    key={backup.id}
+                                    key={idx}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 10 }}
                                     transition={{ duration: 0.2 }}
-                                    className={`cursor-pointer ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                                        } hover:bg-sky-50`}
+                                    className={`cursor-pointer ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-sky-50`}
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-l-lg">
                                         {backup.app}
@@ -93,13 +101,7 @@ const Home = () => {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span
                                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
-                  ${backup.status === 'success'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : backup.status === 'failed'
-                                                        ? 'bg-red-100 text-red-800'
-                                                        : 'bg-yellow-100 text-yellow-800'
-                                                }
-                `}
+                        ${backup.status === 'success' ? 'bg-green-100 text-green-800' : backup.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}
                                         >
                                             {statusIcons[backup.status] || null}
                                             {backup.status.charAt(0).toUpperCase() + backup.status.slice(1)}
@@ -126,7 +128,7 @@ const Home = () => {
                                         >
                                             <FaTrash size={18} />
                                         </button>
-                                        <ReactTooltip place="top" effect="solid" />
+                                        <Tooltip place="top" />
                                     </td>
                                 </motion.tr>
                             ))}
@@ -163,12 +165,18 @@ const Home = () => {
                 <Dialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)} className="relative z-50">
                     <CreateModel
                         onClose={() => setIsCreateOpen(false)}
-                        onSuccess={() => {
+                        onSuccess={(backup: Backup) => {
                             setIsCreateOpen(false);
-                            // Refresh backups
+                            setBackups((prev) => [backup, ...prev]);
+                            addToast(`Backup ${backup.app} created successfully`, 'success');
+                        }}
+                        onError={(error: string) => {
+                            setIsCreateOpen(false);
+                            addToast(error || 'Failed to create backup', 'error');
                         }}
                         token={token}
                     />
+
                 </Dialog>
             </Transition>
 
@@ -178,12 +186,20 @@ const Home = () => {
                         <UpdateModel
                             backup={selectedBackup}
                             onClose={() => setIsUpdateOpen(false)}
-                            onSuccess={() => {
+                            onSuccess={(updatedBackup: Backup) => {
                                 setIsUpdateOpen(false);
-                                // Refresh backups
+                                setBackups((prev) =>
+                                    prev.map((b) => (b.id === updatedBackup.id ? updatedBackup : b))
+                                );
+                                addToast(`Backup ${updatedBackup.app} updated successfully`, 'success');
+                            }}
+                            onError={(error: string) => {
+                                setIsUpdateOpen(false);
+                                addToast(error || 'Failed to update backup', 'error');
                             }}
                             token={token}
                         />
+
                     )}
                 </Dialog>
             </Transition>
@@ -196,10 +212,16 @@ const Home = () => {
                             onClose={() => setIsDeleteOpen(false)}
                             onSuccess={() => {
                                 setIsDeleteOpen(false);
-                                // Refresh backups
+                                setBackups((prev) => prev.filter((b) => b.id !== selectedBackup.id));
+                                addToast(`Backup ${selectedBackup.app} deleted successfully`, 'success');
+                            }}
+                            onError={(error: string) => {
+                                setIsDeleteOpen(false);
+                                addToast(error || 'Failed to delete backup', 'error');
                             }}
                             token={token}
                         />
+
                     )}
                 </Dialog>
             </Transition>

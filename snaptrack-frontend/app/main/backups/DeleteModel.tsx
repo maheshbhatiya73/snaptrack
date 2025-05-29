@@ -6,16 +6,17 @@ interface DeleteModelProps {
   backup: Backup;
   onClose: () => void;
   onSuccess: () => void;
+  onError: () => void;
   token: string;
 }
 
-const DeleteModel = ({ backup, onClose, onSuccess, token }: DeleteModelProps) => {
+const DeleteModel = ({ backup, onClose, onSuccess, onError, token }: DeleteModelProps) => {
   const handleDelete = async () => {
     const response = await deleteBackup(backup.id, token);
     if (response.success) {
-      onSuccess();
+      onSuccess(); // Let parent handle success toast
     } else {
-      alert(response.message);
+      onError(response.message);
     }
   };
 

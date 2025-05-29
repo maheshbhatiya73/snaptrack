@@ -8,6 +8,7 @@ import { FaAngleDown } from 'react-icons/fa';
 interface CreateModelProps {
   onClose: () => void;
   onSuccess: () => void;
+  onError: () => void;
   token: string;
 }
 
@@ -67,7 +68,7 @@ const ListboxSelect = <T extends string>({
   </div>
 );
 
-const CreateModel = ({ onClose, onSuccess, token }: CreateModelProps) => {
+const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) => {
   const [form, setForm] = useState<Partial<Backup>>({
     app: '',
     type: 'manual',
@@ -78,14 +79,15 @@ const CreateModel = ({ onClose, onSuccess, token }: CreateModelProps) => {
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const response = await createBackup(form, token);
-    if (response.success) {
-      onSuccess();
-    } else {
-      alert(response.message);
-    }
-  };
+  e.preventDefault();
+  const response = await createBackup(form, token);
+  if (response.success && response.data) {
+    onSuccess(response.data); // Pass created backup
+  } else {
+    onError(response.message); // Let parent handle error toast
+  }
+};
+
 
   return (
     <motion.div

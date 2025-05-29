@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import { AuthProvider } from '../context/AuthContext';
+import { ToastProvider } from '../components/Toast';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Sidebar open by default
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="flex flex-col w-full min-h-screen bg-gray-50">
         <AuthProvider>
+          <ToastProvider>
           {/* Header */}
           <Header toggleSidebar={toggleSidebar} />
 
@@ -29,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
             </main>
           </div>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

@@ -8,6 +8,7 @@ interface UpdateModelProps {
   backup: Backup;
   onClose: () => void;
   onSuccess: () => void;
+  onError: () => void;
   token: string;
 }
 
@@ -15,18 +16,19 @@ const backupTypes = ['manual', 'full', 'incremental'];
 const fileTypes = ['zip', 'tar', 'tar.gz'];
 const scheduleKinds = ['one-time', 'hourly', 'daily', 'weekly', 'monthly'];
 
-const UpdateModel = ({ backup, onClose, onSuccess, token }: UpdateModelProps) => {
+const UpdateModel = ({ backup, onClose, onSuccess, onError, token }: UpdateModelProps) => {
   const [form, setForm] = useState<Partial<Backup>>(backup);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const response = await updateBackup(backup.id, form, token);
-    if (response.success) {
-      onSuccess();
+    if (response.success && response.data) {
+      onSuccess(form); 
     } else {
-      alert(response.message);
+      onError(response.message); 
     }
   };
+
 
   return (
     <motion.div
@@ -88,8 +90,7 @@ const UpdateModel = ({ backup, onClose, onSuccess, token }: UpdateModelProps) =>
                         key={type}
                         value={type}
                         className={({ active }) =>
-                          `cursor-pointer select-none px-4 py-2 capitalize ${
-                            active ? 'bg-sky-100 text-sky-700' : 'text-gray-800'
+                          `cursor-pointer select-none px-4 py-2 capitalize ${active ? 'bg-sky-100 text-sky-700' : 'text-gray-800'
                           }`
                         }
                       >
@@ -130,8 +131,7 @@ const UpdateModel = ({ backup, onClose, onSuccess, token }: UpdateModelProps) =>
                         key={type}
                         value={type}
                         className={({ active }) =>
-                          `cursor-pointer select-none px-4 py-2 ${
-                            active ? 'bg-sky-100 text-sky-700' : 'text-gray-800'
+                          `cursor-pointer select-none px-4 py-2 ${active ? 'bg-sky-100 text-sky-700' : 'text-gray-800'
                           }`
                         }
                       >
@@ -201,8 +201,7 @@ const UpdateModel = ({ backup, onClose, onSuccess, token }: UpdateModelProps) =>
                         key={kind}
                         value={kind}
                         className={({ active }) =>
-                          `cursor-pointer select-none px-4 py-2 capitalize ${
-                            active ? 'bg-sky-100 text-sky-700' : 'text-gray-800'
+                          `cursor-pointer select-none px-4 py-2 capitalize ${active ? 'bg-sky-100 text-sky-700' : 'text-gray-800'
                           }`
                         }
                       >
