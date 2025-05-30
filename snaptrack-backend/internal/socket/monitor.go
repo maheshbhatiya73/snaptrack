@@ -43,7 +43,6 @@ func GetDiskUsage() (total uint64, used uint64, err error) {
         "ntfs":  true,
         "apfs":  true,
         "hfs":   true,
-        // add more if you need
     }
 
     for _, p := range partitions {
@@ -62,7 +61,6 @@ func GetDiskUsage() (total uint64, used uint64, err error) {
     return 0, 0, fmt.Errorf("no valid disk usage info found")
 }
 
-// GetCPUUsage returns CPU usage percent over 1 second interval
 func GetCPUUsage() (float64, error) {
 	percentages, err := cpu.Percent(time.Second, false)
 	if err != nil {
@@ -74,7 +72,6 @@ func GetCPUUsage() (float64, error) {
 	return percentages[0], nil
 }
 
-// GetRAMUsage returns total and used RAM in bytes
 func GetRAMUsage() (total uint64, used uint64, err error) {
 	vmStat, err := mem.VirtualMemory()
 	if err != nil {
@@ -83,12 +80,10 @@ func GetRAMUsage() (total uint64, used uint64, err error) {
 	return vmStat.Total, vmStat.Used, nil
 }
 
-// GetUptime returns system uptime in seconds
 func GetUptime() (uint64, error) {
 	return host.Uptime()
 }
 
-// GetNetworkUsage returns total bytes sent and received since boot
 func GetNetworkUsage() (sent uint64, recv uint64, err error) {
 	netIOCounters, err := net.IOCounters(false)
 	if err != nil || len(netIOCounters) == 0 {
@@ -97,7 +92,7 @@ func GetNetworkUsage() (sent uint64, recv uint64, err error) {
 	return netIOCounters[0].BytesSent, netIOCounters[0].BytesRecv, nil
 }
 
-// FetchStats collects all metrics into SystemStats struct
+
 func FetchStats() (*SystemStats, error) {
 	diskTotal, diskUsed, err := GetDiskUsage()
 	if err != nil {
@@ -119,8 +114,7 @@ func FetchStats() (*SystemStats, error) {
 	if err != nil {
 		log.Printf("Error getting network usage: %v", err)
 	}
-
-	// Calculate percentages
+	
 	var ramPercent float64
 	var diskPercent float64
 
@@ -147,7 +141,6 @@ func FetchStats() (*SystemStats, error) {
 }
 
 
-// MonitorAndBroadcast collects stats every interval and sends to broadcast channel
 func MonitorAndBroadcast(broadcast chan []byte, interval time.Duration) {
 	for {
 		stats, err := FetchStats()

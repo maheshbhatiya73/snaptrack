@@ -16,13 +16,11 @@ import (
 
 var collection *mongo.Collection
 
-// SetCollection is called from main after DB connection
 func SetCollection(c *mongo.Collection) {
 	collection = c
 	log.Println("Backup collection initialized")
 }
 
-// CreateBackup handles POST /api/backups
 func CreateBackup(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {
 		log.Println("CreateBackup: Database not initialized")
@@ -58,7 +56,7 @@ func CreateBackup(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(backup)
 }
 
-// GetAllBackups handles GET /api/backups
+
 func GetAllBackups(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {
 		log.Println("GetAllBackups: Database not initialized")
@@ -85,7 +83,6 @@ func GetAllBackups(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(backups)
 }
 
-// GetBackupByID handles GET /api/backups/{id}
 func GetBackupByID(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {
 		log.Println("GetBackupByID: Database not initialized")
@@ -113,7 +110,6 @@ func GetBackupByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(backup)
 }
 
-// UpdateBackup handles PUT /api/backups/{id}
 func UpdateBackup(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {
 		log.Println("UpdateBackup: Database not initialized")
@@ -154,7 +150,7 @@ func UpdateBackup(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Backup updated successfully"})
 }
 
-// DeleteBackup handles DELETE /api/backups/{id}
+
 func DeleteBackup(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {
 		log.Println("DeleteBackup: Database not initialized")

@@ -19,7 +19,7 @@ var BackupCollection *mongo.Collection
 
 func InitBackupService(db *mongo.Database) {
 	BackupCollection = db.Collection("backups")
-	go StartBackupProcessor() // 🔁 Start background job loop
+	go StartBackupProcessor() 
 	fmt.Println("✅ Backup processor started")
 }
 
@@ -96,7 +96,6 @@ func RunBackup(job BackupJob) error {
 	destDir := job.DestinationPath
 	filename := fmt.Sprintf("%s-%d.tar.gz", job.App, time.Now().Unix())
 
-	// Ensure destination directory exists
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %v", err)
 	}

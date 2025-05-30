@@ -9,14 +9,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// ClientManager manages all active websocket clients and broadcasts messages
 type ClientManager struct {
 	clients   map[*websocket.Conn]bool
 	lock      sync.Mutex
 	broadcast chan []byte
 }
 
-// NewClientManager initializes a ClientManager
 func NewClientManager() *ClientManager {
 	return &ClientManager{
 		clients:   make(map[*websocket.Conn]bool),
@@ -37,7 +35,6 @@ func (cm *ClientManager) RemoveClient(conn *websocket.Conn) {
 	conn.Close()
 }
 
-// Start listens for broadcast messages and sends them to all clients
 func (cm *ClientManager) Start() {
 	for {
 		msg := <-cm.broadcast
@@ -64,12 +61,11 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// StartWebSocketServer returns an http.Handler that upgrades HTTP to WebSocket and sends stats
+
 func StartWebSocketServer() http.Handler {
 	manager := NewClientManager()
 	go manager.Start()
-
-	// Start system stats monitor and broadcast every 2 seconds
+	
 	go MonitorAndBroadcast(manager.broadcast, 2*time.Second)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,8 +77,7 @@ func StartWebSocketServer() http.Handler {
 		}
 		manager.AddClient(conn)
 		log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
-
-		// Keep connection alive; disconnect on error
+		
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
 				log.Printf("WebSocket disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)

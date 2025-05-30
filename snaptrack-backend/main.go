@@ -52,7 +52,7 @@ func Start(port int) error {
 	mux.Handle("/ws", webSocketServer)
 	mux.HandleFunc("/api/login", api.LoginHandler)
 	mux.HandleFunc("/api/verify", api.VerifyHandler)
-	route.RegisterBackupRoutes(mux) // ← Add this
+	route.RegisterBackupRoutes(mux) 
 
 	log.Printf("Server started at %s", addr)
 	return http.ListenAndServe(addr, corsMiddleware(mux))
