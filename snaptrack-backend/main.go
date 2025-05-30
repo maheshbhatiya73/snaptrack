@@ -8,7 +8,8 @@ import (
 	"snaptrackserver/internal/route"
 	"snaptrackserver/internal/api"
 	"snaptrackserver/internal/socket"
-	    "snaptrackserver/internal/controller"
+	"snaptrackserver/internal/controller"
+	"snaptrackserver/internal/services"
 
 )
 
@@ -36,12 +37,13 @@ func corsMiddleware(h http.Handler) http.Handler {
 }
 
 func Start(port int) error {
-	    db, err := config.ConnectDB()
+	db, err := config.ConnectDB()
     if err != nil {
         log.Fatalf("Database connection failed: %v", err)
     }
-
-    // Use the db variable, pass collection to controller
+	
+	services.InitBackupService(db)
+    services.PrintAllBackupJobs()
     controller.SetCollection(db.Collection("backups"))
 	addr := fmt.Sprintf(":%d", port)
 	webSocketServer := socket.StartWebSocketServer()
