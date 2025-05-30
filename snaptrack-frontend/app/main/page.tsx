@@ -71,44 +71,6 @@ function CircularProgress({
   );
 }
 
-const backups = [
-  { id: 1, date: "2025-05-25 14:00", size: "1.2GB", status: "Success" },
-  { id: 2, date: "2025-05-24 14:00", size: "1.1GB", status: "Success" },
-  { id: 3, date: "2025-05-23 14:00", size: "1.3GB", status: "Failed" },
-];
-
-function BackupList() {
-  return (
-    <div className="mt-10 w-11/12 max-w-3xl bg-white rounded-xl shadow-lg p-6 font-sans">
-      <h2 className="mb-4 text-2xl font-semibold text-gray-700">Recent Backups</h2>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b-2 border-gray-200">
-            <th className="text-left px-3 py-2">Date</th>
-            <th className="text-left px-3 py-2">Size</th>
-            <th className="text-left px-3 py-2">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {backups.map(({ id, date, size, status }) => (
-            <tr key={id} className={status === "Failed" ? "bg-red-100" : ""}>
-              <td className="px-3 py-2">{date}</td>
-              <td className="px-3 py-2">{size}</td>
-              <td
-                className={`px-3 py-2 font-semibold ${
-                  status === "Failed" ? "text-red-700" : "text-green-700"
-                }`}
-              >
-                {status}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { metrics } = useSocket();
 
@@ -118,43 +80,48 @@ export default function Dashboard() {
   const formatBytesToGB = (bytes: number) =>
     (bytes / 1024 ** 3).toFixed(2) + " GB";
 
-  const totalRAM = metrics.ramTotalBytes;
-  const totalDisk = metrics.diskTotalBytes;
+  const cpuPercent = metrics.cpuPercent ?? 0;
+  const ramPercent = metrics.ramPercent ?? 0;
+  const diskPercent = metrics.diskPercent ?? 0;
+  const ramTotalBytes = metrics.ramTotalBytes ?? 1; // avoid div by zero
+  const diskTotalBytes = metrics.diskTotal ?? 1;
+  const netInBytes = metrics.netInBytes ?? 0;
+  const netOutBytes = metrics.netOutBytes ?? 0;
+  const uptimeSeconds = metrics.uptimeSeconds ?? 0;
 
-  const ramUsed = (metrics.ramPercent / 100) * totalRAM;
-  const diskUsed = (metrics.diskPercent / 100) * totalDisk;
-
-  const networkTotal = metrics.netInBytes + metrics.netOutBytes;
+  const ramUsed = (ramPercent / 100) * ramTotalBytes;
+  const diskUsed = (diskPercent / 100) * diskTotalBytes;
+  const networkTotal = netInBytes + netOutBytes;
   const networkUsedGB = networkTotal / 1024 ** 3;
   const networkPercent = Math.min((networkUsedGB / 10) * 100, 100);
-  
-  const uptimePercent = Math.min((metrics.uptimeSeconds / (24 * 3600)) * 100, 100);
+  const uptimePercent = Math.min((uptimeSeconds / (24 * 3600)) * 100, 100);
   const formatUptime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
   };
 
+
   return (
     <div className=" flex flex-col items-center">
       <div className="flex flex-wrap justify-center gap-10">
         <CircularProgress
           label="CPU Usage"
-          percent={metrics.cpuPercent}
+          percent={cpuPercent}
           color="#ff6b6b"
-          usageText={`${metrics.cpuPercent.toFixed(1)}% used`}
+          usageText={`${cpuPercent.toFixed(1)}% used`}
         />
         <CircularProgress
           label="RAM Usage"
-          percent={metrics.ramPercent}
+          percent={ramPercent}
           color="#4caf50"
-          usageText={`${formatBytesToGB(ramUsed)} / ${formatBytesToGB(totalRAM)}`}
+          usageText={`${formatBytesToGB(ramUsed)} / ${formatBytesToGB(ramTotalBytes)}`}
         />
         <CircularProgress
           label="Disk Usage"
-          percent={metrics.diskPercent}
+          percent={diskPercent}
           color="#1e90ff"
-          usageText={`${formatBytesToGB(diskUsed)} / ${formatBytesToGB(totalDisk)}`}
+          usageText={`${formatBytesToGB(diskUsed)} / ${formatBytesToGB(diskTotalBytes)}`}
         />
         <CircularProgress
           label="Network I/O"
@@ -166,11 +133,10 @@ export default function Dashboard() {
           label="Uptime"
           percent={uptimePercent}
           color="#6a5acd"
-          usageText={formatUptime(metrics.uptimeSeconds)}
+          usageText={formatUptime(uptimeSeconds)}
         />
-      </div>
 
-      <BackupList />
+      </div>
     </div>
   );
 }
