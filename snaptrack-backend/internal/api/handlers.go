@@ -26,7 +26,7 @@ type VerifyResponse struct {
 	Valid bool   `json:"valid"`
 }
 
-var jwtSecret = []byte("yydddd") // Replace with a secure key in production (e.g., from env)
+var jwtSecret = []byte("yydddd") 
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -50,11 +50,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	// Generate JWT token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"username": req.Username,
-		"exp":      time.Now().Add(4 * 24 * time.Hour).Unix(), // 4 days
+		"exp":      time.Now().Add(4 * 24 * time.Hour).Unix(), 
 		"iat":      time.Now().Unix(),
 	})
 	tokenString, err := token.SignedString(jwtSecret)
@@ -81,8 +79,7 @@ func VerifyHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing token", http.StatusUnauthorized)
 		return
 	}
-
-	// Remove "Bearer " prefix if present
+	
 	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 		tokenString = tokenString[7:]
 	}

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 interface Metrics {
+  diskTotal: number;
   uptimeSeconds: number;
   netOutBytes: any;
   netInBytes: any;
@@ -41,6 +42,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.onmessage = (event) => {
       try {
         const data: Metrics = JSON.parse(event.data);
+        console.log(data)
         setMetrics(data);
       } catch (e) {
         console.error("Failed to parse message", e);

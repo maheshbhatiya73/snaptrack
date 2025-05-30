@@ -79,14 +79,18 @@ const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) =
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  const response = await createBackup(form, token);
-  if (response.success && response.data) {
-    onSuccess(response.data); // Pass created backup
-  } else {
-    onError(response.message); // Let parent handle error toast
-  }
-};
+    e.preventDefault();
+    try {
+      const response = await createBackup(form, token);
+      if (response.success && response.data) {
+        onSuccess();
+      } else {
+        onError();
+      }
+    } catch {
+      onError();
+    }
+  };
 
 
   return (
@@ -139,17 +143,18 @@ const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) =
             />
           </div>
 
-          <div className="col-span-2">
-            <label className="text-sm font-medium text-gray-700">Destination Path</label>
-            <input
+            {form.type === 'full' && (
+            <div className="col-span-2">
+              <label className="text-sm font-medium text-gray-700">Destination Path</label>
+              <input
               type="text"
               value={form.destinationPath}
               onChange={(e) => setForm({ ...form, destinationPath: e.target.value })}
               className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
-
               required
-            />
-          </div>
+              />
+            </div>
+            )}
 
           <ListboxSelect
             label="Schedule Type"

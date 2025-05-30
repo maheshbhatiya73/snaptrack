@@ -2,9 +2,54 @@ package socket
 
 import (
 	"log"
-	"github.com/gorilla/websocket"
 	"net/http"
+	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
+
+type ClientManager struct {
+	clients   map[*websocket.Conn]bool
+	lock      sync.Mutex
+	broadcast chan []byte
+}
+
+func NewClientManager() *ClientManager {
+	return &ClientManager{
+		clients:   make(map[*websocket.Conn]bool),
+		broadcast: make(chan []byte),
+	}
+}
+
+func (cm *ClientManager) AddClient(conn *websocket.Conn) {
+	cm.lock.Lock()
+	defer cm.lock.Unlock()
+	cm.clients[conn] = true
+}
+
+func (cm *ClientManager) RemoveClient(conn *websocket.Conn) {
+	cm.lock.Lock()
+	defer cm.lock.Unlock()
+	delete(cm.clients, conn)
+	conn.Close()
+}
+
+func (cm *ClientManager) Start() {
+	for {
+		msg := <-cm.broadcast
+		cm.lock.Lock()
+		for client := range cm.clients {
+			err := client.WriteMessage(websocket.TextMessage, msg)
+			if err != nil {
+				log.Printf("Error writing to client %v: %v", client.RemoteAddr(), err)
+				client.Close()
+				delete(cm.clients, client)
+			}
+		}
+		cm.lock.Unlock()
+	}
+}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -16,8 +61,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// StartWebSocketServer starts a WebSocket server
+
 func StartWebSocketServer() http.Handler {
+	manager := NewClientManager()
+	go manager.Start()
+	
+	go MonitorAndBroadcast(manager.broadcast, 2*time.Second)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -25,15 +75,14 @@ func StartWebSocketServer() http.Handler {
 			http.Error(w, "Could not upgrade to WebSocket", http.StatusBadRequest)
 			return
 		}
-		defer conn.Close()
-
-		log.Printf("connected: %s", conn.RemoteAddr().String())
-
-		// Keep connection open, no message handling
+		manager.AddClient(conn)
+		log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
+		
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
-				log.Printf("disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)
-				return
+				log.Printf("WebSocket disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)
+				manager.RemoveClient(conn)
+				break
 			}
 		}
 	})
