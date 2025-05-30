@@ -83,7 +83,7 @@ export default function Dashboard() {
   const cpuPercent = metrics.cpuPercent ?? 0;
   const ramPercent = metrics.ramPercent ?? 0;
   const diskPercent = metrics.diskPercent ?? 0;
-  const ramTotalBytes = metrics.ramTotalBytes ?? 1; // avoid div by zero
+  const ramTotalBytes = metrics.ramTotalBytes ?? 1;
   const diskTotalBytes = metrics.diskTotal ?? 1;
   const netInBytes = metrics.netInBytes ?? 0;
   const netOutBytes = metrics.netOutBytes ?? 0;
