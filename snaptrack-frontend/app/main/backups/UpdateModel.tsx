@@ -23,9 +23,9 @@ const UpdateModel = ({ backup, onClose, onSuccess, onError, token }: UpdateModel
     e.preventDefault();
     const response = await updateBackup(backup.id, form, token);
     if (response.success && response.data) {
-      onSuccess(form); 
+      onSuccess(); 
     } else {
-      onError(response.message); 
+      onError(); 
     }
   };
 
