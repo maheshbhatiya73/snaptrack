@@ -38,13 +38,12 @@ func corsMiddleware(h http.Handler) http.Handler {
 
 func Start(port int) error {
 	db, err := config.ConnectDB()
-    if err != nil {
-        log.Fatalf("Database connection failed: %v", err)
-    }
-	
-	services.InitBackupService(db)
-    services.PrintAllBackupJobs()
+if err != nil {
+    log.Fatalf("Database connection failed: %v", err)
+}
+
     controller.SetCollection(db.Collection("backups"))
+	controller.SetDeploymentCollection(db.Collection("deployments"))
 	addr := fmt.Sprintf(":%d", port)
 	webSocketServer := socket.StartWebSocketServer()
 
@@ -52,9 +51,11 @@ func Start(port int) error {
 	mux.Handle("/ws", webSocketServer)
 	mux.HandleFunc("/api/login", api.LoginHandler)
 	mux.HandleFunc("/api/verify", api.VerifyHandler)
-	route.RegisterBackupRoutes(mux) 
+	route.RegisterBackupRoutes(mux)
+	route.RegisterDeploymentRoutes(mux)
 
 	log.Printf("Server started at %s", addr)
+	services.InitBackupService(db)
 	return http.ListenAndServe(addr, corsMiddleware(mux))
 }
 
