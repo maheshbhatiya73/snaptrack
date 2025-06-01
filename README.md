@@ -2,7 +2,7 @@
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8)](https://golang.org/)  
 [![React Version](https://img.shields.io/badge/React-18.2+-61DAFB)](https://reactjs.org/)  
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)  
-[![Build Status](https://img.shields.io/github/workflow/status/maheshbhatiya73/snaptrack/build)](https://github.com/maheshbhatiya73/gobackup/actions)  
+[![Build Status](https://img.shields.io/github/workflow/status/maheshbhatiya73/snaptrack/build)](https://github.com/maheshbhatiya73/snaptrack/actions)  
 [![Slack](https://img.shields.io/badge/Slack-Join%20Us-blue)](https://slack.golangbridge.org/)
 
 **snaptrack** is a robust, secure, and user-friendly backup and server management system built with **Go** for the backend and **React** for the frontend. It provides scheduled and manual backups, real-time server monitoring via WebSocket, and secure authentication using Linux PAM. Designed for Linux systems, it requires root or sudo privileges to manage critical operations like backups, services, and firewall rules.
