@@ -7,8 +7,8 @@ import { FaAngleDown } from 'react-icons/fa';
 
 interface CreateModelProps {
   onClose: () => void;
-  onSuccess: () => void;
-  onError: () => void;
+  onSuccess: (data: Backup) => void; // Specify that onSuccess receives Backup data
+  onError: (message: string) => void;
   token: string;
 }
 
@@ -79,15 +79,17 @@ const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) =
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  const response = await createBackup(form, token);
-  if (response.success && response.data) {
-    onSuccess(response.data); // Pass created backup
-  } else {
-    onError(response.message); // Let parent handle error toast
-  }
-};
-
+    e.preventDefault();
+    const response = await createBackup(form, token);
+    if (response.success && response.data) {
+      alert(0)
+      onSuccess(response.data); // Pass created backup
+      onClose(); // Close modal only on success
+    } else {
+      // Do not close modal; show full error message in toast
+      onError(response.message || 'Failed to create backup');
+    }
+  };
 
   return (
     <motion.div
@@ -109,7 +111,7 @@ const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) =
               type="text"
               value={form.app}
               onChange={(e) => setForm({ ...form, app: e.target.value })}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-xl  focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
+              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
               required
             />
           </div>
@@ -134,7 +136,7 @@ const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) =
               type="text"
               value={form.sourcePath}
               onChange={(e) => setForm({ ...form, sourcePath: e.target.value })}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-xl  focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
+              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
               required
             />
           </div>
@@ -146,7 +148,6 @@ const CreateModel = ({ onClose, onSuccess, onError, token }: CreateModelProps) =
               value={form.destinationPath}
               onChange={(e) => setForm({ ...form, destinationPath: e.target.value })}
               className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
-
               required
             />
           </div>
