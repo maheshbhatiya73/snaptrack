@@ -54,7 +54,8 @@ func (s *BackupService) Start() {
 
 // Stop gracefully stops the backup scheduler
 func (s *BackupService) Stop() {
-	s.cron.Stop()
+	ctx := s.cron.Stop()
+	<-ctx.Done() // Wait for all running jobs to complete
 	log.Println("Backup scheduler stopped")
 }
 
@@ -82,9 +83,15 @@ func (s *BackupService) checkAndScheduleBackups() {
 	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{"status": models.StatusPending})
+	// Find backups that are pending or completed (for recurring backups)
+	cursor, err := collection.Find(ctx, bson.M{
+		"$or": []bson.M{
+			{"status": models.StatusPending},
+			{"status": models.StatusCompleted, "schedule.kind": bson.M{"$ne": models.ScheduleOneTime}},
+		},
+	})
 	if err != nil {
-		log.Printf("Error fetching pending backups: %v", err)
+		log.Printf("Error fetching backups: %v", err)
 		return
 	}
 	defer cursor.Close(ctx)
@@ -99,43 +106,127 @@ func (s *BackupService) checkAndScheduleBackups() {
 	}
 }
 
-// scheduleBackup schedules a backup based on its schedule kind
 func (s *BackupService) scheduleBackup(backup models.Backup) {
-	var spec string
-	scheduleTime := backup.Schedule.Date
-	now := time.Now().UTC()
+	// Skip if backup is already completed or failed for one-time schedule
+	if backup.Schedule.Kind == models.ScheduleOneTime && (backup.Status == models.StatusCompleted || backup.Status == models.StatusFailed) {
+		log.Printf("Skipping one-time backup %s: already %s", backup.ID.Hex(), backup.Status)
+		return
+	}
 
+	var spec string
+	now := time.Now().UTC()
+	scheduleTime := backup.Schedule.Date
+
+	// Update NextRun for recurring backups or one-time future backups
+	var nextRun time.Time
 	switch backup.Schedule.Kind {
 	case models.ScheduleOneTime:
 		if scheduleTime.After(now) {
-			spec = scheduleTime.Format("15 04 02 01 * 2006") // cron format: mm hh DD MM * YYYY
+			spec = scheduleTime.Format("15 04 02 01 * 2006")
+			nextRun = scheduleTime
 		} else {
 			s.executeBackup(backup)
 			return
 		}
 	case models.ScheduleHourly:
-		spec = "0 * * * *" // Every hour at minute 0
+		spec = "0 * * * *"
+		nextRun = now.Truncate(time.Hour).Add(time.Hour)
 	case models.ScheduleDaily:
-		spec = "0 0 * * *" // Every day at midnight
+		spec = "0 0 * * *"
+		nextRun = now.Truncate(24 * time.Hour).Add(24 * time.Hour)
 	case models.ScheduleWeekly:
-		spec = "0 0 * * 0" // Every Sunday at midnight
+		spec = "0 0 * * 0"
+		nextRun = now.Truncate(24 * time.Hour).AddDate(0, 0, 7-int(now.Weekday()))
 	case models.ScheduleMonthly:
-		spec = "0 0 1 * *" // First day of every month at midnight
+		spec = "0 0 1 * *"
+		nextRun = now.Truncate(24 * time.Hour).AddDate(0, 1, 1-int(now.Day()))
 	default:
 		log.Printf("Invalid schedule kind for backup %s: %s", backup.ID.Hex(), backup.Schedule.Kind)
 		s.createBackupLog(backup.ID, "failed", "Invalid schedule kind")
 		return
 	}
 
-	entryID, err := s.cron.AddFunc(spec, func() {
-		s.executeBackup(backup)
+	// Check if backup is already scheduled by looking for a "scheduled" log
+	collection := s.db.Collection("backups")
+	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
+	defer cancel()
+	var currentBackup models.Backup
+	err := collection.FindOne(ctx, bson.M{
+		"_id": backup.ID,
+		"logs": bson.M{
+			"$elemMatch": bson.M{
+				"status": "scheduled",
+				"message": bson.M{"$regex": fmt.Sprintf("Scheduled backup %s", backup.ID.Hex())},
+			},
+		},
+	}).Decode(&currentBackup)
+	isScheduled := err == nil
+
+	// Update NextRun in the database if not already scheduled or if outdated
+	if !isScheduled || backup.NextRun.IsZero() || backup.NextRun.Before(now) {
+		_, err = collection.UpdateOne(ctx, bson.M{"_id": backup.ID}, bson.M{
+			"$set": bson.M{"nextRun": nextRun},
+		})
+		if err != nil {
+			log.Printf("Error updating nextRun for backup %s: %v", backup.ID.Hex(), err)
+			s.createBackupLog(backup.ID, "failed", "Failed to update nextRun")
+			return
+		}
+	}
+
+	// Log scheduling only if not already scheduled
+	if !isScheduled {
+		countdown := time.Until(nextRun).Round(time.Second).String()
+		logMsg := fmt.Sprintf("Scheduled backup %s (%s) for %s (in %s)", backup.ID.Hex(), backup.Schedule.Kind, nextRun.Format(time.RFC3339), countdown)
+		log.Println(logMsg)
+		s.createBackupLog(backup.ID, "scheduled", logMsg)
+	}
+
+	// Add to cron only if not already scheduled
+	if !isScheduled {
+		_, err := s.cron.AddFunc(spec, func() {
+			s.executeBackup(backup)
+			if backup.Schedule.Kind != models.ScheduleOneTime {
+				s.updateNextRun(backup)
+			}
+		})
+		if err != nil {
+			log.Printf("Error scheduling backup %s: %v", backup.ID.Hex(), err)
+			s.createBackupLog(backup.ID, "failed", "Failed to schedule backup")
+			return
+		}
+	}
+}
+
+// updateNextRun updates the nextRun timestamp for recurring backups
+func (s *BackupService) updateNextRun(backup models.Backup) {
+	now := time.Now().UTC()
+	var nextRun time.Time
+
+	switch backup.Schedule.Kind {
+	case models.ScheduleHourly:
+		nextRun = now.Truncate(time.Hour).Add(time.Hour)
+	case models.ScheduleDaily:
+		nextRun = now.Truncate(24 * time.Hour).Add(24 * time.Hour)
+	case models.ScheduleWeekly:
+		nextRun = now.Truncate(24 * time.Hour).AddDate(0, 0, 7-int(now.Weekday()))
+	case models.ScheduleMonthly:
+		nextRun = now.Truncate(24 * time.Hour).AddDate(0, 1, 1-int(now.Day()))
+	default:
+		return // Should not happen
+	}
+
+	_, err := s.db.Collection("backups").UpdateOne(s.ctx, bson.M{"_id": backup.ID}, bson.M{
+		"$set": bson.M{"nextRun": nextRun},
 	})
 	if err != nil {
-		log.Printf("Error scheduling backup %s: %v", backup.ID.Hex(), err)
-		s.createBackupLog(backup.ID, "failed", "Failed to schedule backup")
+		log.Printf("Error updating nextRun for backup %s: %v", backup.ID.Hex(), err)
+		s.createBackupLog(backup.ID, "failed", "Failed to update nextRun")
 		return
 	}
-	log.Printf("Scheduled backup %s with cron entry ID %d", backup.ID.Hex(), entryID)
+
+	// Do not create a new "scheduled" log here to avoid duplicates
+	log.Printf("Updated nextRun for backup %s (%s) to %s", backup.ID.Hex(), backup.Schedule.Kind, nextRun.Format(time.RFC3339))
 }
 
 // executeBackup performs the backup operation
@@ -144,8 +235,22 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Minute)
 	defer cancel()
 
+	// Check if backup is already running to prevent duplicates
+	var currentBackup models.Backup
+	err := collection.FindOne(ctx, bson.M{"_id": backup.ID}).Decode(&currentBackup)
+	if err != nil {
+		log.Printf("Error checking backup %s status: %v", backup.ID.Hex(), err)
+		s.createBackupLog(backup.ID, "failed", "Failed to check backup status")
+		return
+	}
+	if currentBackup.Status == models.StatusStarted {
+		log.Printf("Backup %s is already running, skipping execution", backup.ID.Hex())
+		s.createBackupLog(backup.ID, "skipped", "Backup is already running")
+		return
+	}
+
 	// Update status to started
-	_, err := collection.UpdateOne(ctx, bson.M{"_id": backup.ID}, bson.M{
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": backup.ID}, bson.M{
 		"$set": bson.M{"status": models.StatusStarted},
 	})
 	if err != nil {
@@ -154,7 +259,7 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 		return
 	}
 
-	s.createBackupLog(backup.ID, "started", "Backup operation started")
+	s.createBackupLog(backup.ID, "started", fmt.Sprintf("Backup started: %s to %s", backup.SourcePath, backup.DestinationPath))
 	log.Printf("Backup started: ID=%s, App=%s", backup.ID.Hex(), backup.App)
 
 	// Construct backup command based on FileType
@@ -177,10 +282,9 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 
 	// Execute backup command
 	output, err := cmd.CombinedOutput()
-	s.createBackupLog(backup.ID, "executed", "Backup command executed")
 	if err != nil {
 		log.Printf("Backup %s failed: %v", backup.ID.Hex(), err)
-		s.createBackupLog(backup.ID, "failed", "Backup failed: "+string(output))
+		s.createBackupLog(backup.ID, "failed", fmt.Sprintf("Backup failed: %s", string(output)))
 		// Update backup status to failed
 		_, err = collection.UpdateOne(ctx, bson.M{"_id": backup.ID}, bson.M{
 			"$set": bson.M{
