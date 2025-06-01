@@ -43,7 +43,6 @@ if err != nil {
 }
 
     controller.SetCollection(db.Collection("backups"))
-	controller.SetDeploymentCollection(db.Collection("deployments"))
 	addr := fmt.Sprintf(":%d", port)
 	webSocketServer := socket.StartWebSocketServer()
 
@@ -52,7 +51,6 @@ if err != nil {
 	mux.HandleFunc("/api/login", api.LoginHandler)
 	mux.HandleFunc("/api/verify", api.VerifyHandler)
 	route.RegisterBackupRoutes(mux)
-	route.RegisterDeploymentRoutes(mux)
 
 	log.Printf("Server started at %s", addr)
 	services.InitBackupService(db)
