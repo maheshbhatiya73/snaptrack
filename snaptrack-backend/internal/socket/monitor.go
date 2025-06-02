@@ -141,7 +141,7 @@ func FetchStats() (*SystemStats, error) {
 }
 
 
-func MonitorAndBroadcast(broadcast chan []byte, interval time.Duration) {
+func MonitorAndBroadcastSystemStats(broadcast chan []byte, interval time.Duration) {
 	for {
 		stats, err := FetchStats()
 		if err != nil {
@@ -150,7 +150,15 @@ func MonitorAndBroadcast(broadcast chan []byte, interval time.Duration) {
 			continue
 		}
 
-		data, err := json.Marshal(stats)
+		payload := struct {
+			Type  string       `json:"type"`
+			Stats *SystemStats `json:"stats"`
+		}{
+			Type:  "metrics",
+			Stats: stats,
+		}
+
+		data, err := json.Marshal(payload)
 		if err != nil {
 			log.Printf("Error marshalling stats: %v", err)
 			time.Sleep(interval)

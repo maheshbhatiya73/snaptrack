@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"encoding/json"
+
 
 	"github.com/gorilla/websocket"
 )
@@ -61,29 +63,45 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-
 func StartWebSocketServer() http.Handler {
-	manager := NewClientManager()
-	go manager.Start()
-	
-	go MonitorAndBroadcast(manager.broadcast, 2*time.Second)
+    manager := NewClientManager()
+    go manager.Start()
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Printf("WebSocket upgrade error: %v", err)
-			http.Error(w, "Could not upgrade to WebSocket", http.StatusBadRequest)
-			return
-		}
-		manager.AddClient(conn)
-		log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
-		
-		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
-				log.Printf("WebSocket disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)
-				manager.RemoveClient(conn)
-				break
-			}
-		}
-	})
+    // Note: Removed the goroutine for MonitorAndBroadcastSystemServices
+    // It will be called per client connection
+
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        conn, err := upgrader.Upgrade(w, r, nil)
+        if err != nil {
+            log.Printf("WebSocket upgrade error: %v", err)
+            http.Error(w, "Could not upgrade to WebSocket", http.StatusBadRequest)
+            return
+        }
+        manager.AddClient(conn)
+        log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
+
+        // Fetch and send services data once upon connection
+	go MonitorAndBroadcastSystemStats(manager.broadcast, 2*time.Second)
+
+        go MonitorAndBroadcastSystemServices(manager.broadcast)
+
+        for {
+            messageType, message, err := conn.ReadMessage()
+            if err != nil {
+                log.Printf("WebSocket disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)
+                manager.RemoveClient(conn)
+                break
+            }
+            // Handle incoming messages (e.g., actions)
+            if messageType == websocket.TextMessage {
+                var action struct {
+                    Type    string `json:"type"`
+                    Service string `json:"service"`
+                }
+                if err := json.Unmarshal(message, &action); err == nil {
+                    ServicesActions(conn, action.Type, action.Service)
+                }
+            }
+        }
+    })
 }
