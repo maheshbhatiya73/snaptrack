@@ -9,7 +9,7 @@ import {
 
 const navItems = [
   { icon: <FaTachometerAlt />, label: 'Dashboard', path: '/' },
-  { icon: <FaServer />, label: 'Service', path: '/main/Service' },
+  { icon: <FaServer />, label: 'Service', path: '/main/services' },
   { icon: <FaDatabase />, label: 'Backups', path: '/main/backups' },
   { icon: <FaChartLine />, label: 'Firewall', path: '/main/Firewall' },
   { icon: <FaFileAlt />, label: 'Logs', path: '/main/logs' },

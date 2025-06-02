@@ -14,7 +14,6 @@ type BackupWithLogs = Backup & {
     }[];
 };
 
-// Ensure Backup type status property includes all possible values
 type BackupType = {
     id: string;
     app: string;
@@ -54,7 +53,6 @@ const Home = () => {
     useEffect(() => {
         const fetchBackups = async () => {
             if (!token) {
-                addToast('No authentication token found', 'error');
                 return;
             }
             try {
