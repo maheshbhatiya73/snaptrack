@@ -6,8 +6,7 @@ import (
 	"sync"
 	"time"
 	"encoding/json"
-
-
+	"strings"
 	"github.com/gorilla/websocket"
 )
 
@@ -67,8 +66,11 @@ func StartWebSocketServer() http.Handler {
     manager := NewClientManager()
     go manager.Start()
 
-    // Note: Removed the goroutine for MonitorAndBroadcastSystemServices
-    // It will be called per client connection
+    // Start monitoring goroutines once, when the server starts
+    go MonitorAndBroadcastSystemStats(manager.broadcast, 2*time.Second)
+    go MonitorAndBroadcastFirewallRules(manager.broadcast)
+    go MonitorAndBroadcastRunningPorts(manager.broadcast)
+    go MonitorAndBroadcastSystemServices(manager.broadcast)
 
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         conn, err := upgrader.Upgrade(w, r, nil)
@@ -80,11 +82,6 @@ func StartWebSocketServer() http.Handler {
         manager.AddClient(conn)
         log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
 
-        // Fetch and send services data once upon connection
-	go MonitorAndBroadcastSystemStats(manager.broadcast, 2*time.Second)
-
-        go MonitorAndBroadcastSystemServices(manager.broadcast)
-
         for {
             messageType, message, err := conn.ReadMessage()
             if err != nil {
@@ -92,16 +89,56 @@ func StartWebSocketServer() http.Handler {
                 manager.RemoveClient(conn)
                 break
             }
-            // Handle incoming messages (e.g., actions)
             if messageType == websocket.TextMessage {
                 var action struct {
-                    Type    string `json:"type"`
-                    Service string `json:"service"`
+                    Type string          `json:"type"`
+                    Data json.RawMessage `json:"data"`
                 }
                 if err := json.Unmarshal(message, &action); err == nil {
-                    ServicesActions(conn, action.Type, action.Service)
+                    HandleWebSocketAction(conn, action.Type, action.Data)
                 }
             }
         }
     })
+}
+
+func HandleWebSocketAction(conn *websocket.Conn, actionType string, data json.RawMessage) {
+	switch {
+	case strings.HasPrefix(actionType, "services_"):
+		// Extract the actual action (e.g., "start" from "services_start")
+		action := strings.TrimPrefix(actionType, "services_")
+		var serviceName string
+		if err := json.Unmarshal(data, &serviceName); err != nil {
+			sendError(conn, "Invalid service data: "+err.Error())
+			return
+		}
+		ServicesActions(conn, action, serviceName)
+
+	case strings.HasPrefix(actionType, "firewall_") || actionType == "stop_port" || actionType == "add_port":
+		// Handle firewall and port-related actions
+		FirewallActions(conn, actionType, data)
+
+	default:
+		sendError(conn, "Unknown action: "+actionType)
+	}
+}
+
+func sendError(conn *websocket.Conn, message string) {
+	response := struct {
+		Type    string `json:"type"`
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}{
+		Type:    "error",
+		Success: false,
+		Message: message,
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Error marshaling error response: %v", err)
+		return
+	}
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		log.Printf("Error sending error message: %v", err)
+	}
 }

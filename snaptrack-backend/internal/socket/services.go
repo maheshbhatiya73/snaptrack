@@ -22,63 +22,68 @@ type ServiceInfo struct {
 	Version string `json:"version"`
 }
 func MonitorAndBroadcastSystemServices(broadcast chan<- []byte) {
-    services, err := GetAllSystemServices()
-    if err != nil {
-        log.Printf("Error getting services: %v", err)
-        return
-    }
-
-    var serviceInfos []ServiceInfo
-    for _, service := range services {
-        status, err := GetServiceStatus(service)
+    for {
+        services, err := GetAllSystemServices()
         if err != nil {
-            status = "unknown"
+            logErrorWithRateLimit("Error getting services", err)
+            time.Sleep(10 * time.Second)
+            continue
         }
 
-        uptime, err := GetServiceUptime(service)
-        if err != nil {
-            log.Printf("Error getting uptime for %s: %v", service, err)
-            uptime = "unknown"
+        var serviceInfos []ServiceInfo
+        for _, service := range services {
+            status, err := GetServiceStatus(service)
+            if err != nil {
+                status = "unknown"
+            }
+
+            uptime, err := GetServiceUptime(service)
+            if err != nil {
+                logErrorWithRateLimit(fmt.Sprintf("Error getting uptime for %s", service), err)
+                uptime = "unknown"
+            }
+
+            memory, err := GetServiceMemoryUsage(service)
+            if err != nil {
+                logErrorWithRateLimit(fmt.Sprintf("Error getting memory for %s", service), err)
+                memory = "unknown"
+            }
+
+            version, err := GetServiceVersion(service)
+            if err != nil {
+                logErrorWithRateLimit(fmt.Sprintf("Error getting version for %s", service), err)
+                version = "n/a"
+            }
+
+            serviceInfos = append(serviceInfos, ServiceInfo{
+                Name:    service,
+                Status:  status,
+                Uptime:  uptime,
+                Memory:  memory,
+                Version: version,
+            })
         }
 
-        memory, err := GetServiceMemoryUsage(service)
-        if err != nil {
-            log.Printf("Error getting memory for %s: %v", service, err)
-            memory = "unknown"
-        }
-
-        version, err := GetServiceVersion(service)
-        if err != nil {
-            log.Printf("Error getting version for %s: %v", service, err)
-            version = "n/a" // Use "n/a" instead of empty string for clarity
-        }
-
-        serviceInfos = append(serviceInfos, ServiceInfo{
-            Name:    service,
-            Status:  status,
-            Uptime:  uptime,
-            Memory:  memory,
-            Version: version,
+        data, err := json.Marshal(struct {
+            Type     string        `json:"type"`
+            Services []ServiceInfo `json:"services"`
+        }{
+            Type:     "services",
+            Services: serviceInfos,
         })
-    }
+        if err != nil {
+            logErrorWithRateLimit("Error marshaling services", err)
+            time.Sleep(10 * time.Second)
+            continue
+        }
 
-    data, err := json.Marshal(struct {
-        Type     string        `json:"type"`
-        Services []ServiceInfo `json:"services"`
-    }{
-        Type:     "services",
-        Services: serviceInfos,
-    })
-    if err != nil {
-        log.Printf("Error marshaling services: %v", err)
-        return
-    }
-
-    select {
-    case broadcast <- data:
-        log.Println("Sent services data to broadcast channel")
-    default:
-        log.Println("Broadcast channel full, skipping services update")
+        select {
+        case broadcast <- data:
+            log.Println("Sent services data to broadcast channel")
+        default:
+            log.Println("Broadcast channel full, skipping services update")
+        }
+        time.Sleep(30 * time.Second) // Poll every 30 seconds
     }
 }
 
@@ -468,12 +473,14 @@ func ServicesActions(conn *websocket.Conn, action, serviceName string) {
 				Log:     logs,
 			}
 			data, _ := json.Marshal(logResponse)
-			conn.WriteMessage(websocket.TextMessage, data)
+			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Printf("Error sending log response: %v", err)
+			}
 			return
 		}
 	default:
 		response.Success = false
-		response.Message = "Invalid action"
+		response.Message = "Invalid service action: " + action
 	}
 
 	data, err := json.Marshal(response)
@@ -481,5 +488,7 @@ func ServicesActions(conn *websocket.Conn, action, serviceName string) {
 		log.Printf("Error marshaling response: %v", err)
 		return
 	}
-	conn.WriteMessage(websocket.TextMessage, data)
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		log.Printf("Error sending response: %v", err)
+	}
 }
