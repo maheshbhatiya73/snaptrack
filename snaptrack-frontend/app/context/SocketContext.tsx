@@ -26,6 +26,22 @@ interface Metrics {
   diskPercent: number;
 }
 
+interface FirewallRule {
+  id: string;
+  protocol: string;
+  port: string;
+  source: string;
+  destination: string;
+  action: string;
+}
+
+interface RunningPort {
+  protocol: string;
+  port: number;
+  process: string;
+  pid: number;
+}
+
 interface LogMessage {
   type: string;
   service: string;
@@ -36,14 +52,21 @@ interface SocketContextType {
   socket: WebSocket | null;
   metrics: Metrics | null;
   services: ServiceInfo[] | null;
+  firewallRules: FirewallRule[] | null;
+  runningPorts: RunningPort[] | null;
   logs: { [service: string]: string[] };
-  sendAction: (type: "start" | "stop" | "restart" | "logs", service: string) => void;
+  sendAction: (
+    type: "start" | "stop" | "restart" | "logs" | "stop_port" | "add_port" | "add_rule",
+    data: string | { port?: number; pid?: number; protocol?: string; source?: string; destination?: string; action?: string }
+  ) => void;
 }
 
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   metrics: null,
   services: null,
+  firewallRules: null,
+  runningPorts: null,
   logs: {},
   sendAction: () => {},
 });
@@ -54,16 +77,30 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [services, setServices] = useState<ServiceInfo[] | null>(null);
+  const [firewallRules, setFirewallRules] = useState<FirewallRule[] | null>(null);
+  const [runningPorts, setRunningPorts] = useState<RunningPort[] | null>(null);
   const [logs, setLogs] = useState<{ [service: string]: string[] }>({});
 
-  const sendAction = (type: "start" | "stop" | "restart" | "logs", service: string) => {
+  const sendAction = (
+    type: "start" | "stop" | "restart" | "logs" | "stop_port" | "add_port" | "add_rule",
+    data: string | { port?: number; pid?: number; protocol?: string; source?: string; destination?: string; action?: string }
+  ) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
-      const action = { type, service };
-      socket.send(JSON.stringify(action));
-      console.log(`Sent action: ${JSON.stringify(action)}`);
+      let actionType = type;
+      if (["start", "stop", "restart", "logs"].includes(type)) {
+        actionType = `services_${type}`;
+      } else if (type === "add_rule") {
+        actionType = `firewall_${type}`;
+      }
+      const message = JSON.stringify({
+        type: actionType,
+        data, // Send data directly, let JSON.stringify handle object serialization
+      });
+      console.log("Sending WebSocket message:", message); // Debug log
+      socket.send(message);
     } else {
-      console.error("WebSocket is not open");
-      toast.error("WebSocket connection not established");
+      console.error("WebSocket not connected");
+      toast.error("WebSocket not connected");
     }
   };
 
@@ -80,20 +117,33 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const data = JSON.parse(event.data);
         console.log("Received:", data);
 
-        if (data.type === "services") {
-          setServices(data.services);
-        } else if (data.type === "metrics") {
-          setMetrics(data.stats);
-        } else if (data.type === "log") {
-          setLogs((prev) => ({
-            ...prev,
-            [data.service]: data.log.split("\n").filter((line: string) => line.trim()),
-          }));
-        } else if (data.type === "action_response") {
-          toast[data.success ? "success" : "error"](data.message, {
-            position: "top-right",
-            autoClose: 3000,
-          });
+        switch (data.type) {
+          case "services":
+            setServices(data.services);
+            break;
+          case "metrics":
+            setMetrics(data.stats);
+            break;
+          case "firewalls":
+            setFirewallRules(data.rules);
+            break;
+          case "ports":
+            setRunningPorts(data.ports);
+            break;
+          case "log":
+            setLogs((prev) => ({
+              ...prev,
+              [data.service]: data.log.split("\n").filter((line: string) => line.trim()),
+            }));
+            break;
+          case "action_response":
+            toast[data.success ? "success" : "error"](data.message, {
+              position: "top-right",
+              autoClose: 2000,
+            });
+            break;
+          default:
+            console.warn("Unknown message type:", data.type);
         }
       } catch (e) {
         console.error("Failed to parse message:", e);
@@ -120,8 +170,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, metrics, services, logs, sendAction }}>
+    <SocketContext.Provider
+      value={{ socket, metrics, services, firewallRules, runningPorts, logs, sendAction }}
+    >
       {children}
+      <ToastContainer position="top-right" autoClose={2000} theme="colored" />
     </SocketContext.Provider>
   );
 };
