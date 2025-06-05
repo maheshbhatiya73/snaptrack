@@ -12,7 +12,7 @@ const navItems = [
   { icon: <FaServer />, label: 'Service', path: '/main/services' },
   { icon: <FaDatabase />, label: 'Backups', path: '/main/backups' },
   { icon: <FaChartLine />, label: 'Firewall', path: '/main/Firewall' },
-  { icon: <FaFileAlt />, label: 'Logs', path: '/main/logs' },
+  { icon: <FaFileAlt />, label: 'Process', path: '/main/process' },
   { icon: <FaSlidersH />, label: 'Settings', path: '/main/settings' },
 ];
 

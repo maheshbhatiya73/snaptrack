@@ -26,6 +26,16 @@ interface Metrics {
   diskPercent: number;
 }
 
+interface RunningProcess {
+  pid: number;
+  name: string;
+  cpu_percent: number;
+  mem_percent: number;
+  status: string;
+}
+
+
+
 interface FirewallRule {
   id: string;
   protocol: string;
@@ -55,6 +65,7 @@ interface SocketContextType {
   firewallRules: FirewallRule[] | null;
   runningPorts: RunningPort[] | null;
   logs: { [service: string]: string[] };
+  runningProcesses: RunningProcess[] | null;
   sendAction: (
     type: "start" | "stop" | "restart" | "logs" | "stop_port" | "add_port" | "add_rule",
     data: string | { port?: number; pid?: number; protocol?: string; source?: string; destination?: string; action?: string }
@@ -68,7 +79,8 @@ const SocketContext = createContext<SocketContextType>({
   firewallRules: null,
   runningPorts: null,
   logs: {},
-  sendAction: () => {},
+  sendAction: () => { },
+  runningProcesses: null,
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -80,6 +92,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [firewallRules, setFirewallRules] = useState<FirewallRule[] | null>(null);
   const [runningPorts, setRunningPorts] = useState<RunningPort[] | null>(null);
   const [logs, setLogs] = useState<{ [service: string]: string[] }>({});
+  const [runningProcesses, setRunningProcesses] = useState<RunningProcess[] | null>(null);
+
 
   const sendAction = (
     type: "start" | "stop" | "restart" | "logs" | "stop_port" | "add_port" | "add_rule",
@@ -130,6 +144,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           case "ports":
             setRunningPorts(data.ports);
             break;
+          case "process_list":
+            setRunningProcesses(data.processes);
+            break;
           case "log":
             setLogs((prev) => ({
               ...prev,
@@ -171,7 +188,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return (
     <SocketContext.Provider
-      value={{ socket, metrics, services, firewallRules, runningPorts, logs, sendAction }}
+      value={{ socket, metrics, services, firewallRules, runningPorts, logs, sendAction, runningProcesses }}
     >
       {children}
       <ToastContainer position="top-right" autoClose={2000} theme="colored" />
