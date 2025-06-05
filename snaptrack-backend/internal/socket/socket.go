@@ -71,6 +71,8 @@ func StartWebSocketServer() http.Handler {
     go MonitorAndBroadcastFirewallRules(manager.broadcast)
     go MonitorAndBroadcastRunningPorts(manager.broadcast)
     go MonitorAndBroadcastSystemServices(manager.broadcast)
+	go MonitorAndBroadcastRunningProcesses(manager.broadcast, 5*time.Second, 30) // send top 30
+
 
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         conn, err := upgrader.Upgrade(w, r, nil)

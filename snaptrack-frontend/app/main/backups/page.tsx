@@ -1,34 +1,21 @@
 "use client";
 import { useState, useEffect, Fragment } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaHourglassHalf, FaQuestionCircle, FaEye } from 'react-icons/fa';
 import { Dialog, Transition } from '@headlessui/react';
 import { Backup, getBackups } from '@/app/lib/api';
 
-type BackupWithLogs = Backup & {
+type BackupStatus = 'success' | 'failed' | 'pending' | 'started' | 'scheduled' | 'unknown' | string;
+
+type BackupType = Backup & {
+    status?: BackupStatus;
     logs?: {
         id: string;
-        status: 'success' | 'failed' | 'pending' | 'started' | 'scheduled' | 'unknown' | string;
+        status: BackupStatus;
         message: string;
         createdAt: string;
     }[];
 };
 
-type BackupType = {
-    id: string;
-    app: string;
-    type: string;
-    size?: string;
-    fileType?: string;
-    status?: 'success' | 'failed' | 'pending' | 'started' | 'scheduled' | 'unknown' | string;
-    nextRun?: string;
-    logs?: {
-        id: string;
-        status: 'success' | 'failed' | 'pending' | 'started' | 'scheduled' | 'unknown' | string;
-        message: string;
-        createdAt: string;
-    }[];
-};
 import { Tooltip } from "react-tooltip";
 import CreateModel from './CreateModel';
 import UpdateModel from './UpdateModel';
@@ -109,10 +96,7 @@ const Home = () => {
 
     return (
         <div className="container mx-auto p-6">
-            <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
+            <div
                 className="flex justify-between items-center mb-6"
             >
                 <h1 className="text-3xl font-bold text-gray-800">Backup Management</h1>
@@ -122,7 +106,7 @@ const Home = () => {
                 >
                     <FaPlus className="mr-2" /> New Backup
                 </button>
-            </motion.div>
+            </div>
             <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -138,14 +122,9 @@ const Home = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        <AnimatePresence>
                             {backups.map((backup, idx) => (
-                                <motion.tr
-                                    key={backup.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 10 }}
-                                    transition={{ duration: 0.2 }}
+                                <tr
+                                    key={idx}
                                     className={`cursor-pointer ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-sky-50`}
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 rounded-l-lg">
@@ -208,9 +187,8 @@ const Home = () => {
                                         <Tooltip id="delete-tooltip" place="top" />
                                         <Tooltip id="logs-tooltip" place="top" />
                                     </td>
-                                </motion.tr>
+                                </tr>
                             ))}
-                        </AnimatePresence>
                     </tbody>
                 </table>
             </div>
