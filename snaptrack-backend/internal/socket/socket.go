@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
+	"encoding/json"
+	"strings"
 	"github.com/gorilla/websocket"
 )
 
@@ -61,29 +62,85 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-
 func StartWebSocketServer() http.Handler {
-	manager := NewClientManager()
-	go manager.Start()
-	
-	go MonitorAndBroadcast(manager.broadcast, 2*time.Second)
+    manager := NewClientManager()
+    go manager.Start()
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Printf("WebSocket upgrade error: %v", err)
-			http.Error(w, "Could not upgrade to WebSocket", http.StatusBadRequest)
+    // Start monitoring goroutines once, when the server starts
+    go MonitorAndBroadcastSystemStats(manager.broadcast, 2*time.Second)
+    go MonitorAndBroadcastFirewallRules(manager.broadcast)
+    go MonitorAndBroadcastRunningPorts(manager.broadcast)
+    go MonitorAndBroadcastSystemServices(manager.broadcast)
+	go MonitorAndBroadcastRunningProcesses(manager.broadcast, 5*time.Second, 30) // send top 30
+
+
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        conn, err := upgrader.Upgrade(w, r, nil)
+        if err != nil {
+            log.Printf("WebSocket upgrade error: %v", err)
+            http.Error(w, "Could not upgrade to WebSocket", http.StatusBadRequest)
+            return
+        }
+        manager.AddClient(conn)
+        log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
+
+        for {
+            messageType, message, err := conn.ReadMessage()
+            if err != nil {
+                log.Printf("WebSocket disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)
+                manager.RemoveClient(conn)
+                break
+            }
+            if messageType == websocket.TextMessage {
+                var action struct {
+                    Type string          `json:"type"`
+                    Data json.RawMessage `json:"data"`
+                }
+                if err := json.Unmarshal(message, &action); err == nil {
+                    HandleWebSocketAction(conn, action.Type, action.Data)
+                }
+            }
+        }
+    })
+}
+
+func HandleWebSocketAction(conn *websocket.Conn, actionType string, data json.RawMessage) {
+	switch {
+	case strings.HasPrefix(actionType, "services_"):
+		// Extract the actual action (e.g., "start" from "services_start")
+		action := strings.TrimPrefix(actionType, "services_")
+		var serviceName string
+		if err := json.Unmarshal(data, &serviceName); err != nil {
+			sendError(conn, "Invalid service data: "+err.Error())
 			return
 		}
-		manager.AddClient(conn)
-		log.Printf("WebSocket connected: %s", conn.RemoteAddr().String())
-		
-		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
-				log.Printf("WebSocket disconnected: %s, reason: %v", conn.RemoteAddr().String(), err)
-				manager.RemoveClient(conn)
-				break
-			}
-		}
-	})
+		ServicesActions(conn, action, serviceName)
+
+	case strings.HasPrefix(actionType, "firewall_") || actionType == "stop_port" || actionType == "add_port":
+		// Handle firewall and port-related actions
+		FirewallActions(conn, actionType, data)
+
+	default:
+		sendError(conn, "Unknown action: "+actionType)
+	}
+}
+
+func sendError(conn *websocket.Conn, message string) {
+	response := struct {
+		Type    string `json:"type"`
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}{
+		Type:    "error",
+		Success: false,
+		Message: message,
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Error marshaling error response: %v", err)
+		return
+	}
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		log.Printf("Error sending error message: %v", err)
+	}
 }

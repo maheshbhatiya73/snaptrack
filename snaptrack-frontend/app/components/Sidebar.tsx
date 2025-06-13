@@ -9,10 +9,10 @@ import {
 
 const navItems = [
   { icon: <FaTachometerAlt />, label: 'Dashboard', path: '/' },
-  { icon: <FaServer />, label: 'Deployments', path: '/main/deployments' },
+  { icon: <FaServer />, label: 'Service', path: '/main/services' },
   { icon: <FaDatabase />, label: 'Backups', path: '/main/backups' },
-  { icon: <FaChartLine />, label: 'Monitoring', path: '/main/monitoring' },
-  { icon: <FaFileAlt />, label: 'Logs', path: '/main/logs' },
+  { icon: <FaChartLine />, label: 'Firewall', path: '/main/Firewall' },
+  { icon: <FaFileAlt />, label: 'Process', path: '/main/process' },
   { icon: <FaSlidersH />, label: 'Settings', path: '/main/settings' },
 ];
 

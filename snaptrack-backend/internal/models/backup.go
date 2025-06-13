@@ -69,6 +69,7 @@ type Backup struct {
 	DestinationPath string             `json:"destinationPath" bson:"destinationPath"`
 	FileType        FileType           `json:"fileType" bson:"fileType"`
 	Schedule        Schedule           `json:"schedule" bson:"schedule"`
+	NextRun         time.Time          `json:"nextRun,omitempty" bson:"nextRun,omitempty"`
 	Logs            []BackupLog        `json:"logs,omitempty" bson:"logs,omitempty"`
 	CreatedAt       time.Time          `json:"createdAt" bson:"createdAt"`
 }
