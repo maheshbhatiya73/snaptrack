@@ -8,7 +8,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const ProcessList = () => {
   const { runningProcesses } = useSocket();
-  const [processes, setProcesses] = useState([]);
+  const [processes, setProcesses] = useState<any>([]);
   const [sortConfig, setSortConfig] = useState({ key: 'cpu_percent', direction: 'desc' });
 
   useEffect(() => {
@@ -17,7 +17,7 @@ const ProcessList = () => {
     }
   }, [runningProcesses]);
 
-  const sortData = (key) => {
+  const sortData = (key:any) => {
     let direction = 'desc';
     if (sortConfig.key === key && sortConfig.direction === 'desc') {
       direction = 'asc';
@@ -33,7 +33,7 @@ const ProcessList = () => {
     setSortConfig({ key, direction });
   };
 
-  const getSortIcon = (key) => {
+  const getSortIcon = (key:any) => {
     if (sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-4 w-4" />;
     return sortConfig.direction === 'asc' ? (
       <ArrowUp className="ml-2 h-4 w-4" />
@@ -86,7 +86,7 @@ const ProcessList = () => {
             </TableHeader>
             <TableBody>
               <AnimatePresence>
-                {processes.map((process, index) => (
+                {processes.map((process:any, index:number) => (
                   <motion.tr
                     key={process.pid}
                     initial={{ opacity: 0, y: 20 }}
