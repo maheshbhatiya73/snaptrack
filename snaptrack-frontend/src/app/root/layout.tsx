@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../store/useAuth';
+import Sidebar from './components/Sidebar';
+import Header from './components/Header';
+import { SocketProvider } from '../context/SocketContext';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, initAuth } = useAuth();
@@ -21,12 +24,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   if (loading) return null;
 
   return (
-    <div className="flex h-screen">
-        <div></div>
+    <SocketProvider>
+    <div className="flex h-screen  bg-black">
+         <Sidebar />
       <div className="flex flex-col flex-1">
-        <div></div>
+        <Header />
         <main className="p-4 overflow-y-auto">{children}</main>
       </div>
     </div>
+    </SocketProvider>
   );
 }
