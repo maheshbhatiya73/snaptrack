@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, JSX } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,6 @@ export default function BackupTable() {
   const [backups, setBackups] = useState<any>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const router = useRouter();
-  const { token } = useAuth();
   const { success, error } = useLinuxToast();
 
   useEffect(() => {

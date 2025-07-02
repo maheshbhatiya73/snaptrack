@@ -54,7 +54,7 @@ export default function UpdateBackupPage() {
           scheduleDate: new Date(backup.schedule.date),
         });
         setIsLoading(false);
-      } catch (err:any) {
+      } catch (err: any) {
         setFetchError(err.message || 'Failed to fetch backup');
         setIsLoading(false);
       }
@@ -65,20 +65,20 @@ export default function UpdateBackupPage() {
   }, [id, token]);
 
   // Handle input changes
-  const handleInputChange = (e:any) => {
+  const handleInputChange = (e: any) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   // Handle select changes
-  const handleSelectChange = (name:any, value:any) => {
+  const handleSelectChange = (name: any, value: any) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   // Handle date change
-  const handleDateChange = (date:any) => {
+  const handleDateChange = (date: any) => {
     setFormData((prev) => ({ ...prev, scheduleDate: date }));
     setErrors((prev) => ({ ...prev, scheduleDate: '' }));
   };
@@ -127,35 +127,35 @@ export default function UpdateBackupPage() {
   };
 
   // Handle form submission
- const onSubmit = async (e:any) => {
-  e.preventDefault();
+  const onSubmit = async (e: any) => {
+    e.preventDefault();
 
-  if (validateForm()) {
-    try {
-      const backupData = {
-        app: formData.app,
-        type: formData.type,
-        sourcePath: formData.sourcePath,
-        destinationPath: formData.destinationPath,
-        fileType: formData.fileType,
-        schedule: {
-          kind: formData.scheduleKind,
-          date: formData.scheduleDate.toISOString(),
-        },
-      };
+    if (validateForm()) {
+      try {
+        const backupData = {
+          app: formData.app,
+          type: formData.type,
+          sourcePath: formData.sourcePath,
+          destinationPath: formData.destinationPath,
+          fileType: formData.fileType,
+          schedule: {
+            kind: formData.scheduleKind,
+            date: formData.scheduleDate.toISOString(),
+          },
+        };
 
-      await updateBackup(id, backupData);
-      success('Backup updated successfully');
-      router.push('/root/backups');
-    } catch (err: any) {
-      error(err.message || 'Failed to update backup');
-      setErrors((prev) => ({
-        ...prev,
-        general: err.message || 'Failed to update backup',
-      }));
+        await updateBackup(id, backupData);
+        success('Backup updated successfully');
+        router.push('/root/backups');
+      } catch (err: any) {
+        error(err.message || 'Failed to update backup');
+        setErrors((prev) => ({
+          ...prev,
+          general: err.message || 'Failed to update backup',
+        }));
+      }
     }
-  }
-};
+  };
 
   if (isLoading) {
     return (
