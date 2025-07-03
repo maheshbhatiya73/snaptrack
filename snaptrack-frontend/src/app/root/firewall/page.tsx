@@ -1,9 +1,15 @@
-const app = () => {
-    return(
-        <div>
-            root login
-        </div>
-    )
-}
+"use client";
+import React from 'react';
+import FirewallList from './FirewallList';
+import PortsList from './PortsList';
 
-export default app
+const App = () => {
+  return (
+    <div className="">
+      <FirewallList />
+      <PortsList />
+    </div>
+  );
+};
+
+export default App;
