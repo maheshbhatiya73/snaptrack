@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Server, Shield, Settings, LogOut, HardDrive, Activity, Cpu, ServerCog } from 'lucide-react';
+import { Home, Server, Shield, Settings, LogOut, HardDrive, Activity, Cpu, ServerCog, icons } from 'lucide-react';
 import Link from 'next/link';
 
 const navItems = [
@@ -9,6 +9,7 @@ const navItems = [
   { label: 'Monitor', href: '/root/monitor', icon: Activity },
   { label: 'Process', href: '/root/process', icon: Cpu },
   { label: 'Services', href: '/root/services', icon: ServerCog },
+  { label: "firewall", href: "/root/firewall", icon: Shield},
   { label: 'Settings', href: '/root/settings', icon: Settings },
 ];
 
