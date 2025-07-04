@@ -19,6 +19,9 @@ jobs:
       with:
         go-version: '1.22.2'
 
+    - name: Install PAM development headers
+      run: sudo apt-get update && sudo apt-get install -y libpam0g-dev
+
     - name: Build the project
       working-directory: snaptrack-backend
       run: go build -v ./...
