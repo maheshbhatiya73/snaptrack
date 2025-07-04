@@ -45,6 +45,10 @@ func NewBackupService(db *mongo.Database) *BackupService {
 	return svc
 }
 
+func GetBackupService() *BackupService {
+	return backupService
+}
+
 // Start begins the backup scheduler
 func (s *BackupService) Start() {
 	s.cron.AddFunc("@every 1m", s.checkAndScheduleBackups)
@@ -107,6 +111,14 @@ func (s *BackupService) checkAndScheduleBackups() {
 }
 
 func (s *BackupService) scheduleBackup(backup models.Backup) {
+	// Run immediately if RunNow is true
+	if backup.RunNow {
+		log.Printf("RunNow is true for backup %s. Executing immediately.", backup.ID.Hex())
+		go s.ExecuteBackup(backup)
+		s.CreateBackupLog(backup.ID, "triggered", "Backup triggered immediately via RunNow")
+		return
+	}
+
 	// Skip if backup is already completed or failed for one-time schedule
 	if backup.Schedule.Kind == models.ScheduleOneTime && (backup.Status == models.StatusCompleted || backup.Status == models.StatusFailed) {
 		log.Printf("Skipping one-time backup %s: already %s", backup.ID.Hex(), backup.Status)
@@ -122,10 +134,11 @@ func (s *BackupService) scheduleBackup(backup models.Backup) {
 	switch backup.Schedule.Kind {
 	case models.ScheduleOneTime:
 		if scheduleTime.After(now) {
-			spec = scheduleTime.Format("15 04 02 01 * 2006")
+			// robfig/cron uses standard cron syntax, not Go time format
+			spec = fmt.Sprintf("%d %d %d %d *", scheduleTime.Minute(), scheduleTime.Hour(), scheduleTime.Day(), int(scheduleTime.Month()))
 			nextRun = scheduleTime
 		} else {
-			s.executeBackup(backup)
+			log.Printf("One-time backup %s has past scheduled time (%v), skipping scheduling.", backup.ID.Hex(), scheduleTime)
 			return
 		}
 	case models.ScheduleHourly:
@@ -142,11 +155,11 @@ func (s *BackupService) scheduleBackup(backup models.Backup) {
 		nextRun = now.Truncate(24 * time.Hour).AddDate(0, 1, 1-int(now.Day()))
 	default:
 		log.Printf("Invalid schedule kind for backup %s: %s", backup.ID.Hex(), backup.Schedule.Kind)
-		s.createBackupLog(backup.ID, "failed", "Invalid schedule kind")
+		s.CreateBackupLog(backup.ID, "failed", "Invalid schedule kind")
 		return
 	}
 
-	// Check if backup is already scheduled by looking for a "scheduled" log
+	// Check if backup is already scheduled by log
 	collection := s.db.Collection("backups")
 	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 	defer cancel()
@@ -162,41 +175,42 @@ func (s *BackupService) scheduleBackup(backup models.Backup) {
 	}).Decode(&currentBackup)
 	isScheduled := err == nil
 
-	// Update NextRun in the database if not already scheduled or if outdated
+	// Update NextRun if not scheduled or outdated
 	if !isScheduled || backup.NextRun.IsZero() || backup.NextRun.Before(now) {
 		_, err = collection.UpdateOne(ctx, bson.M{"_id": backup.ID}, bson.M{
 			"$set": bson.M{"nextRun": nextRun},
 		})
 		if err != nil {
 			log.Printf("Error updating nextRun for backup %s: %v", backup.ID.Hex(), err)
-			s.createBackupLog(backup.ID, "failed", "Failed to update nextRun")
+			s.CreateBackupLog(backup.ID, "failed", "Failed to update nextRun")
 			return
 		}
 	}
 
-	// Log scheduling only if not already scheduled
+	// Log only if not already scheduled
 	if !isScheduled {
 		countdown := time.Until(nextRun).Round(time.Second).String()
 		logMsg := fmt.Sprintf("Scheduled backup %s (%s) for %s (in %s)", backup.ID.Hex(), backup.Schedule.Kind, nextRun.Format(time.RFC3339), countdown)
 		log.Println(logMsg)
-		s.createBackupLog(backup.ID, "scheduled", logMsg)
+		s.CreateBackupLog(backup.ID, "scheduled", logMsg)
 	}
 
-	// Add to cron only if not already scheduled
+	// Add to cron
 	if !isScheduled {
 		_, err := s.cron.AddFunc(spec, func() {
-			s.executeBackup(backup)
+			s.ExecuteBackup(backup)
 			if backup.Schedule.Kind != models.ScheduleOneTime {
 				s.updateNextRun(backup)
 			}
 		})
 		if err != nil {
 			log.Printf("Error scheduling backup %s: %v", backup.ID.Hex(), err)
-			s.createBackupLog(backup.ID, "failed", "Failed to schedule backup")
+			s.CreateBackupLog(backup.ID, "failed", "Failed to schedule backup")
 			return
 		}
 	}
 }
+
 
 // updateNextRun updates the nextRun timestamp for recurring backups
 func (s *BackupService) updateNextRun(backup models.Backup) {
@@ -221,7 +235,7 @@ func (s *BackupService) updateNextRun(backup models.Backup) {
 	})
 	if err != nil {
 		log.Printf("Error updating nextRun for backup %s: %v", backup.ID.Hex(), err)
-		s.createBackupLog(backup.ID, "failed", "Failed to update nextRun")
+		s.CreateBackupLog(backup.ID, "failed", "Failed to update nextRun")
 		return
 	}
 
@@ -230,7 +244,7 @@ func (s *BackupService) updateNextRun(backup models.Backup) {
 }
 
 // executeBackup performs the backup operation
-func (s *BackupService) executeBackup(backup models.Backup) {
+func (s *BackupService) ExecuteBackup(backup models.Backup) {
 	collection := s.db.Collection("backups")
 	ctx, cancel := context.WithTimeout(s.ctx, 30*time.Minute)
 	defer cancel()
@@ -240,12 +254,12 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 	err := collection.FindOne(ctx, bson.M{"_id": backup.ID}).Decode(&currentBackup)
 	if err != nil {
 		log.Printf("Error checking backup %s status: %v", backup.ID.Hex(), err)
-		s.createBackupLog(backup.ID, "failed", "Failed to check backup status")
+		s.CreateBackupLog(backup.ID, "failed", "Failed to check backup status")
 		return
 	}
 	if currentBackup.Status == models.StatusStarted {
 		log.Printf("Backup %s is already running, skipping execution", backup.ID.Hex())
-		s.createBackupLog(backup.ID, "skipped", "Backup is already running")
+		s.CreateBackupLog(backup.ID, "skipped", "Backup is already running")
 		return
 	}
 
@@ -255,11 +269,11 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 	})
 	if err != nil {
 		log.Printf("Error updating backup status to started: %v", err)
-		s.createBackupLog(backup.ID, "failed", "Failed to update status to started")
+		s.CreateBackupLog(backup.ID, "failed", "Failed to update status to started")
 		return
 	}
 
-	s.createBackupLog(backup.ID, "started", fmt.Sprintf("Backup started: %s to %s", backup.SourcePath, backup.DestinationPath))
+	s.CreateBackupLog(backup.ID, "started", fmt.Sprintf("Backup started: %s to %s", backup.SourcePath, backup.DestinationPath))
 	log.Printf("Backup started: ID=%s, App=%s", backup.ID.Hex(), backup.App)
 
 	// Construct backup command based on FileType
@@ -276,7 +290,7 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 		cmd = exec.Command("tar", "-zcvf", destination, backup.SourcePath)
 	default:
 		log.Printf("Unsupported file type for backup %s: %s", backup.ID.Hex(), backup.FileType)
-		s.createBackupLog(backup.ID, "failed", "Unsupported file type")
+		s.CreateBackupLog(backup.ID, "failed", "Unsupported file type")
 		return
 	}
 
@@ -284,7 +298,7 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Backup %s failed: %v", backup.ID.Hex(), err)
-		s.createBackupLog(backup.ID, "failed", fmt.Sprintf("Backup failed: %s", string(output)))
+		s.CreateBackupLog(backup.ID, "failed", fmt.Sprintf("Backup failed: %s", string(output)))
 		// Update backup status to failed
 		_, err = collection.UpdateOne(ctx, bson.M{"_id": backup.ID}, bson.M{
 			"$set": bson.M{
@@ -294,7 +308,7 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 		})
 		if err != nil {
 			log.Printf("Error updating backup status: %v", err)
-			s.createBackupLog(backup.ID, "failed", "Failed to update backup status")
+			s.CreateBackupLog(backup.ID, "failed", "Failed to update backup status")
 		}
 		return
 	}
@@ -308,15 +322,15 @@ func (s *BackupService) executeBackup(backup models.Backup) {
 	})
 	if err != nil {
 		log.Printf("Error updating backup status: %v", err)
-		s.createBackupLog(backup.ID, "failed", "Failed to update backup status")
+		s.CreateBackupLog(backup.ID, "failed", "Failed to update backup status")
 		return
 	}
 
-	s.createBackupLog(backup.ID, "completed", "Backup completed successfully")
+	s.CreateBackupLog(backup.ID, "completed", "Backup completed successfully")
 }
 
-// createBackupLog appends a log entry to the backup's Logs field
-func (s *BackupService) createBackupLog(backupID primitive.ObjectID, status, message string) {
+// CreateBackupLog appends a log entry to the backup's Logs field
+func (s *BackupService) CreateBackupLog(backupID primitive.ObjectID, status, message string) {
 	collection := s.db.Collection("backups")
 	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 	defer cancel()

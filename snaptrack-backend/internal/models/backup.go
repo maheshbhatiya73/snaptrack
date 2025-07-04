@@ -56,6 +56,7 @@ type BackupLog struct {
 	Status    string             `json:"status" bson:"status"`     // e.g., "started", "executed", "completed", "failed"
 	Message   string             `json:"message" bson:"message"`   // Log message or error details
 	CreatedAt time.Time          `json:"createdAt" bson:"createdAt"`
+
 }
 
 // Backup model
@@ -71,5 +72,6 @@ type Backup struct {
 	Schedule        Schedule           `json:"schedule" bson:"schedule"`
 	NextRun         time.Time          `json:"nextRun,omitempty" bson:"nextRun,omitempty"`
 	Logs            []BackupLog        `json:"logs,omitempty" bson:"logs,omitempty"`
+	RunNow          bool               `json:"runNow" bson:"runNow"`
 	CreatedAt       time.Time          `json:"createdAt" bson:"createdAt"`
 }

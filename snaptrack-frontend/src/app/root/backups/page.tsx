@@ -32,6 +32,7 @@ interface Backup {
     kind: string;
   };
   createdAt: string;
+  nextRun?: string; 
   logs: BackupLog[];
 }
 
@@ -67,6 +68,8 @@ export default function BackupTable() {
     }
     fetchBackups();
   }, []);
+
+
 
   const filteredData = useMemo(() => {
     let result = [...backups];
@@ -106,19 +109,21 @@ export default function BackupTable() {
   function getRelativeTimeLabel(dateString: string): string {
     const now = new Date();
     const target = new Date(dateString);
-    const diffMs = target.getTime() - now.getTime();
 
+    if (isNaN(target.getTime()) || target.getTime() === 0) return '—'; // e.g. 0001-01-01T00:00:00Z
+
+    const diffMs = target.getTime() - now.getTime();
     if (diffMs <= 0) return 'now';
 
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-    if (hours > 0) {
-      return `in ${hours}h ${minutes}m`;
-    }
+    if (diffDays > 0) return `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+    if (diffHours > 0) return `in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+    if (diffMinutes > 0) return `in ${diffMinutes} min`;
 
-    return `in ${minutes} min`;
+    return 'soon';
   }
 
   const handleDelete = async () => {
@@ -212,6 +217,9 @@ export default function BackupTable() {
                     File Type
                   </TableHead>
                   <TableHead className="text-green-400 font-medium sticky top-0 bg-gray-800/80">
+                    Next Run
+                  </TableHead>
+                  <TableHead className="text-green-400 font-medium sticky top-0 bg-gray-800/80">
                     Schedule
                   </TableHead>
                   <TableHead
@@ -242,6 +250,9 @@ export default function BackupTable() {
                     <TableCell className="text-white">{backup.sourcePath}</TableCell>
                     <TableCell className="text-white">{backup.destinationPath}</TableCell>
                     <TableCell className="text-white">{backup.fileType}</TableCell>
+                    <TableCell className="text-white">
+  {backup.nextRun ? getRelativeTimeLabel(backup.nextRun) : '—'}
+</TableCell>
                     <TableCell className="text-white">{backup.schedule.kind}</TableCell>
                     <TableCell className="text-white">
                       {new Date(backup.createdAt).toLocaleString()}

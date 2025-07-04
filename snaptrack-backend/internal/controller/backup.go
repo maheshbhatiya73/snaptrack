@@ -15,6 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"snaptrackserver/internal/services"
 )
 
 // ErrorResponse defines the structure for JSON error responses
@@ -71,7 +72,6 @@ func formatSize(bytes int64) string {
 	}
 	return fmt.Sprintf("%.1f%s", size, units[unitIndex])
 }
-
 func CreateBackup(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {
 		log.Println("CreateBackup: Database not initialized")
@@ -106,25 +106,45 @@ func CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate source folder size
+	// Set Schedule.Kind to "one-time" if empty
+	if backup.Schedule.Kind == "" {
+		backup.Schedule.Kind = models.ScheduleOneTime
+	}
+
+	// Validate one-time schedule: either RunNow is true, or date must be provided
+	if backup.Schedule.Kind == models.ScheduleOneTime && backup.Schedule.Date.IsZero() && !backup.RunNow {
+		writeJSONError(w, "Missing or invalid date for one-time backup", http.StatusBadRequest)
+		return
+	}
+
+	// Calculate size of source folder
 	sizeBytes, err := getFolderSize(backup.SourcePath)
 	if err != nil {
-		log.Printf("CreateBackup: Failed to calculate source folder size for %s: %v", backup.SourcePath, err)
+		log.Printf("CreateBackup: Failed to calculate source folder size: %v", err)
 		writeJSONError(w, "Failed to calculate source folder size", http.StatusInternalServerError)
 		return
 	}
 	backup.Size = formatSize(sizeBytes)
 
-	backup.Status = models.StatusPending // Set initial status
-	backup.CreatedAt = time.Now()
+	// Final metadata
 	backup.ID = primitive.NewObjectID()
+	backup.Status = models.StatusPending
+	backup.CreatedAt = time.Now().UTC()
 
+	// Store in MongoDB (including RunNow)
 	res, err := collection.InsertOne(context.Background(), backup)
 	if err != nil {
 		log.Printf("CreateBackup: Failed to insert backup: %v", err)
 		writeJSONError(w, "Failed to create backup", http.StatusInternalServerError)
 		return
 	}
+
+	// Trigger backup immediately if RunNow is true
+	if backup.RunNow {
+		go services.GetBackupService().ExecuteBackup(backup)
+		services.GetBackupService().CreateBackupLog(backup.ID, "triggered", "Backup triggered via runNow")
+		log.Printf("CreateBackup: Backup %s triggered immediately (runNow=true)", backup.ID.Hex())
+	} 
 
 	log.Printf("CreateBackup: Backup created with ID %v, Size %s", res.InsertedID, backup.Size)
 	w.Header().Set("Content-Type", "application/json")
@@ -133,6 +153,7 @@ func CreateBackup(w http.ResponseWriter, r *http.Request) {
 		log.Printf("CreateBackup: Failed to encode response: %v", err)
 	}
 }
+
 
 func GetAllBackups(w http.ResponseWriter, r *http.Request) {
 	if collection == nil {

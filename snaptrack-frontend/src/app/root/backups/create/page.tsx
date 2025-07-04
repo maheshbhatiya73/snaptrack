@@ -14,9 +14,14 @@ import { useLinuxToast } from '@/lib/use-linux-toast';
 import { useRouter } from 'next/navigation';
 
 // Type definitions
-type BackupType = 'manual' | 'automatic';
-type FileType = 'zip' | 'tar.gz';
-type ScheduleKind = 'one-time' | 'hourly';
+type BackupType = 'manual' | 'full' | 'incremental';
+type FileType = 'zip' | 'tar' | 'tar.gz';
+type ScheduleKind = 'one-time' | 'hourly' | 'daily' | 'weekly' | 'monthly';
+
+interface Schedule {
+  kind: ScheduleKind;
+  date: string;
+}
 
 interface FormData {
   app: string;
@@ -24,8 +29,8 @@ interface FormData {
   sourcePath: string;
   destinationPath: string;
   fileType: FileType;
-  scheduleKind: ScheduleKind;
-  scheduleDate: Date;
+  schedule: Schedule;
+  runNow?: boolean;
 }
 
 interface FormErrors {
@@ -45,8 +50,11 @@ export default function CreateBackupPage(): JSX.Element {
     sourcePath: '',
     destinationPath: '',
     fileType: 'zip',
-    scheduleKind: 'one-time',
-    scheduleDate: new Date(),
+    schedule: {
+      kind: 'one-time',
+      date: new Date().toISOString(),
+    },
+    runNow: false,
   });
 
   // Error state with proper typing
@@ -57,21 +65,26 @@ export default function CreateBackupPage(): JSX.Element {
     scheduleDate: '',
   });
   const { success, error } = useLinuxToast();
-  const router = useRouter()
+  const router = useRouter();
 
   // Handle input changes with proper typing
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     const fieldName = name as FormFieldNames;
-
-    setFormData((prev) => ({ ...prev, [fieldName]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
     // Clear error when user starts typing
     setErrors((prev) => ({ ...prev, [fieldName]: '' }));
   };
 
   // Handle select changes with proper typing
   const handleSelectChange = <T extends keyof FormData>(name: T, value: FormData[T]): void => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
 
     // Clear error if the field has an error state
     if (name in errors) {
@@ -79,12 +92,36 @@ export default function CreateBackupPage(): JSX.Element {
     }
   };
 
+  const handleScheduleKindChange = (kind: ScheduleKind) => {
+    setFormData((prev) => ({
+      ...prev,
+      schedule: {
+        ...prev.schedule,
+        kind,
+      },
+    }));
+  };
+
   // Handle date change with proper typing
-  const handleDateChange = (date: Date | null): void => {
+  const handleDateChange = (date: Date | null) => {
     if (date) {
-      setFormData((prev) => ({ ...prev, scheduleDate: date }));
+      setFormData((prev) => ({
+        ...prev,
+        schedule: {
+          ...prev.schedule,
+          date: date.toISOString(),
+        },
+      }));
       setErrors((prev) => ({ ...prev, scheduleDate: '' }));
     }
+  };
+
+  const handleRunNowChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setFormData((prev) => ({
+      ...prev,
+      runNow: checked,
+    }));
   };
 
   // Manual validation with proper return type
@@ -95,32 +132,28 @@ export default function CreateBackupPage(): JSX.Element {
       destinationPath: '',
       scheduleDate: '',
     };
-    let isValid: boolean = true;
+    let isValid = true;
 
-    // App name validation
     if (!formData.app) {
       newErrors.app = 'App name is required';
       isValid = false;
-    } else if (formData.app.length > 50) {
-      newErrors.app = 'App name must be 50 characters or less';
-      isValid = false;
     }
 
-    // Source path validation
     if (!formData.sourcePath) {
       newErrors.sourcePath = 'Source path is required';
       isValid = false;
     }
 
-
-    // Destination path validation
     if (!formData.destinationPath) {
       newErrors.destinationPath = 'Destination path is required';
       isValid = false;
     }
 
-    // Schedule date validation
-    if (formData.scheduleKind === 'one-time' && formData.scheduleDate < new Date()) {
+    if (
+      formData.schedule.kind === 'one-time' &&
+      !formData.runNow &&
+      new Date(formData.schedule.date) < new Date()
+    ) {
       newErrors.scheduleDate = 'Schedule date must be in the future';
       isValid = false;
     }
@@ -128,6 +161,8 @@ export default function CreateBackupPage(): JSX.Element {
     setErrors(newErrors);
     return isValid;
   };
+
+  
 
   // Handle form submission with proper typing
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -140,8 +175,11 @@ export default function CreateBackupPage(): JSX.Element {
         sourcePath: '',
         destinationPath: '',
         fileType: 'zip',
-        scheduleKind: 'one-time',
-        scheduleDate: new Date(),
+        schedule: {
+          kind: 'one-time',
+          date: new Date().toISOString(),
+        },
+        runNow: false,
       };
 
       const initialErrors: FormErrors = {
@@ -154,10 +192,9 @@ export default function CreateBackupPage(): JSX.Element {
       try {
         const response = await createBackup(formData);
         success('Backup created successfully');
-
         setFormData(initialFormData);
         setErrors(initialErrors);
-        router.push('/root/backups')
+        router.push('/root/backups');
       } catch (err: any) {
         error(err.message || 'Unexpected error occurred');
       }
@@ -222,11 +259,13 @@ export default function CreateBackupPage(): JSX.Element {
                   </SelectTrigger>
                   <SelectContent className="bg-gray-900 border-gray-700 text-white">
                     <SelectItem value="manual">Manual</SelectItem>
-                    <SelectItem value="automatic">Automatic</SelectItem>
+                    <SelectItem value="full">Full</SelectItem>
+                    <SelectItem value="incremental">Incremental</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Source Path */}
               {/* Source Path */}
               <div className="space-y-2">
                 <Label htmlFor="sourcePath" className="text-green-400 font-medium flex items-center gap-2">
@@ -283,10 +322,11 @@ export default function CreateBackupPage(): JSX.Element {
                 </AnimatePresence>
               </div>
 
+
               {/* File Type */}
               <div className="space-y-2">
                 <Label htmlFor="fileType" className="text-green-400 font-medium flex items-center gap-2">
-                  <FileArchive className="w-5 h-5" /> File Type
+                  <FileArchive className="w-5 h-5" /> File ShakespeareType
                 </Label>
                 <Select
                   value={formData.fileType}
@@ -297,6 +337,7 @@ export default function CreateBackupPage(): JSX.Element {
                   </SelectTrigger>
                   <SelectContent className="bg-gray-900 border-gray-700 text-white">
                     <SelectItem value="zip">ZIP</SelectItem>
+                    <SelectItem value="tar">TAR</SelectItem>
                     <SelectItem value="tar.gz">TAR.GZ</SelectItem>
                   </SelectContent>
                 </Select>
@@ -304,35 +345,40 @@ export default function CreateBackupPage(): JSX.Element {
 
               {/* Schedule */}
               <div className="space-y-2">
-                <Label htmlFor="scheduleKind" className="text-green-400 font-medium flex items-center gap-2">
+                <Label htmlFor="schedule.kind" className="text-green-400 font-medium flex items-center gap-2">
                   <Calendar className="w-5 h-5" /> Schedule
                 </Label>
                 <Select
-                  value={formData.scheduleKind}
-                  onValueChange={(value: ScheduleKind) => handleSelectChange('scheduleKind', value)}
+                  value={formData.schedule.kind}
+                  onValueChange={handleScheduleKindChange}
                 >
                   <SelectTrigger className="bg-gray-900/50 border-gray-700 text-white focus:ring-2 focus:ring-green-500">
                     <SelectValue placeholder="Select schedule" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-900 border-gray-700 text-white">
+                  <SelectContent className="bg-gray-900 border-gray-700 textunionfs">
                     <SelectItem value="one-time">One-Time</SelectItem>
                     <SelectItem value="hourly">Hourly</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Schedule Date */}
-              {formData.scheduleKind === 'one-time' && (
+              {formData.schedule.kind === 'one-time' && (
                 <div className="space-y-2 md:col-span-2">
+                  {/* Schedule Date Picker */}
                   <Label htmlFor="scheduleDate" className="text-green-400 font-medium flex items-center gap-2">
                     <Clock className="w-5 h-5" /> Schedule Date/Time
                   </Label>
                   <DatePicker
-                    selected={formData.scheduleDate}
+                    selected={new Date(formData.schedule.date)}
                     onChange={handleDateChange}
                     showTimeSelect
                     dateFormat="Pp"
                     minDate={new Date()}
+                    disabled={formData.runNow === true}
                     className="w-full bg-gray-900/50 border-gray-700 text-white rounded-md p-2 focus:ring-2 focus:ring-green-500 transition-all duration-200"
                   />
                   <AnimatePresence>
@@ -347,6 +393,20 @@ export default function CreateBackupPage(): JSX.Element {
                       </motion.p>
                     )}
                   </AnimatePresence>
+
+                  {/* Run Now Checkbox */}
+                  <div className="flex items-center space-x-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="runNow"
+                      checked={formData.runNow || false}
+                      onChange={handleRunNowChange}
+                      className="w-4 h-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <Label htmlFor="runNow" className="text-sm text-gray-300">
+                      Run backup immediately instead of scheduled time
+                    </Label>
+                  </div>
                 </div>
               )}
 
