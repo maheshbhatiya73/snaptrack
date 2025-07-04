@@ -1,0 +1,28 @@
+name: SnapTrack Go Backend CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.2'
+
+    - name: Build the project
+      working-directory: snaptrack/snaptrack-backend
+      run: go build -v ./...
+
+    - name: Run tests
+      working-directory: snaptrack/snaptrack-backend
+      run: go test -v ./...
