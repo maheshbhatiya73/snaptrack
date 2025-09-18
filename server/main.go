@@ -16,14 +16,13 @@ func main() {
 	}
 
 	db.Connect()
-    db.Init()
-	app := fiber.New()
+	db.Init()
 
-	// Serve static files
+	app := fiber.New()
 	app.Static("/", "./web/.output/public")
 
-	// Register APIs
-	api.RegisterAuthRoutes(app)
+	api.RegisterRoutes(app)      
+	api.RegisterAuthRoutes(app)  
 
 	log.Println("Server running at http://localhost:8080")
 	log.Fatal(app.Listen(":8080"))

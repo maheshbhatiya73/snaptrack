@@ -73,16 +73,27 @@ func GenerateJWT(username string) (string, error) {
 
 func RequireJWT() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		tokenStr := c.Get("Authorization")
-		if tokenStr == "" {
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
+		}
+
+		const prefix = "Bearer "
+		tokenStr := authHeader
+		if len(authHeader) > len(prefix) && authHeader[:len(prefix)] == prefix {
+			tokenStr = authHeader[len(prefix):]
 		}
 
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 			return jwtSecret, nil
 		})
+		
 		if err != nil || !token.Valid {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
+		}
+		
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			c.Locals("username", claims["username"])
 		}
 
 		return c.Next()

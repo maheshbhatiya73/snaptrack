@@ -16,17 +16,14 @@ func RegisterAuthRoutes(app *fiber.App) {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 		}
 
-		// PAM authentication
 		if err := auth.PAMAuthenticate(body.Username, body.Password); err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Authentication failed"})
 		}
 
-		// Only superuser
 		if !auth.IsSuperUser(body.Username) {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not authorized"})
 		}
 
-		// Generate JWT
 		token, err := auth.GenerateJWT(body.Username)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Token generation failed"})
