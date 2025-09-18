@@ -28,7 +28,7 @@
                 class="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               />
               <button type="button" @click="showPassword = !showPassword" class="absolute inset-y-0 right-0 px-3 text-slate-400">
-                {{ showPassword ? '🙈' : '👁️' }}
+                {{ showPassword ? 'Hide' : 'Show' }}
               </button>
             </div>
           </div>
@@ -62,12 +62,10 @@ const toastMessage = ref('')
 const toastType = ref('success')
 const router = useRouter()
 
-// Redirect if already logged in
 onMounted(() => {
   if (isAuthenticated()) router.replace('/dashboard')
 })
 
-// Helper: show toast and auto-hide after 3s
 function showToast(message, type = 'success') {
   toastMessage.value = message
   toastType.value = type
@@ -88,7 +86,6 @@ const handleLogin = async () => {
   try {
     const data = await loginUser({ username: username.value, password: password.value })
 
-    // Save auth data as expected by middleware
     const authData = {
       token: data.token,
       user: data.user || { username: username.value },
@@ -96,10 +93,8 @@ const handleLogin = async () => {
     }
     localStorage.setItem('snapstack_auth', JSON.stringify(authData))
 
-    // Show success toast
     showToast(data.message || 'Login successful', 'success')
 
-    // Redirect after a short delay to allow toast to appear
     setTimeout(() => {
       router.push('/dashboard')
     }, 1000)

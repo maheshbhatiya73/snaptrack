@@ -10,7 +10,6 @@ import { isAuthenticated } from '~/lib/api'
 const router = useRouter()
 
 onMounted(() => {
-  // Instant redirect based on authentication status
   if (isAuthenticated()) {
     router.replace('/dashboard')
   } else {

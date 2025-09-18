@@ -20,8 +20,8 @@ import { ref, watch, onMounted } from 'vue'
 
 const props = defineProps({
   message: { type: String, required: true },
-  type: { type: String, default: 'success' }, // success | error | info
-  duration: { type: Number, default: 3000 } // auto dismiss after 3s
+  type: { type: String, default: 'success' },
+  duration: { type: Number, default: 3000 }
 })
 
 const visible = ref(false)
