@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 
+	"snaptrack/api"
+	"snaptrack/db"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
-	"snaptrack/api"
 )
 
 func main() {
@@ -13,6 +15,8 @@ func main() {
 		log.Println("No .env file found, using system environment variables")
 	}
 
+	db.Connect()
+    db.Init()
 	app := fiber.New()
 
 	// Serve static files
