@@ -7,6 +7,7 @@ import (
 	"snaptrack/db"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -20,9 +21,14 @@ func main() {
 
 	app := fiber.New()
 	app.Static("/", "./web/.output/public")
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:3000",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+	}))
 
-	api.RegisterRoutes(app)      
-	api.RegisterAuthRoutes(app)  
+	api.RegisterRoutes(app)
+	api.RegisterAuthRoutes(app)
 
 	log.Println("Server running at http://localhost:8080")
 	log.Fatal(app.Listen(":8080"))

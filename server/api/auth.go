@@ -11,24 +11,45 @@ func RegisterAuthRoutes(app *fiber.App) {
 			Username string `json:"username"`
 			Password string `json:"password"`
 		}
+
 		var body loginRequest
 		if err := c.BodyParser(&body); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Invalid request payload",
+			})
 		}
 
+		// Authenticate user with PAM
 		if err := auth.PAMAuthenticate(body.Username, body.Password); err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Authentication failed"})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Authentication failed",
+			})
 		}
 
+		// Check sudo / super admin permission
 		if !auth.IsSuperUser(body.Username) {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not authorized"})
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":  "error",
+				"message": "User does not have sudo permissions",
+			})
 		}
 
+		// Generate JWT token
 		token, err := auth.GenerateJWT(body.Username)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Token generation failed"})
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Token generation failed",
+			})
 		}
 
-		return c.JSON(fiber.Map{"token": token})
+		// Success response
+		return c.JSON(fiber.Map{
+			"status":  "success",
+			"message": "Login successful",
+			"token":   token,
+		})
 	})
 }
