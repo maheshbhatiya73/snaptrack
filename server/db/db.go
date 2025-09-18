@@ -12,20 +12,21 @@ import (
 var DB *gorm.DB
 
 func Connect() {
-	host := os.Getenv("PG_HOST")
-	port := os.Getenv("PG_PORT")
-	user := os.Getenv("PG_USER")
-	password := os.Getenv("PG_PASSWORD")
-	dbname := os.Getenv("PG_DBNAME")
-
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("PG_HOST"),
+		os.Getenv("PG_PORT"),
+		os.Getenv("PG_USER"),
+		os.Getenv("PG_PASSWORD"),
+		os.Getenv("PG_DBNAME"),
+	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Failed to connect to PostgreSQL:", err)
+		log.Fatalf("Failed to connect to PostgreSQL: %v", err)
 	}
 
 	DB = db
-	log.Println("Connected to PostgreSQL successfully")
+	Init()
+	log.Println("Connected to PostgreSQL and ran migrations successfully")
 }
