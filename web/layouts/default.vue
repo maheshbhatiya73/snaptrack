@@ -1,9 +1,11 @@
 <template>
-  <div class="min-h-screen bg-slate-50">
+  <div class="min-h-screen bg-background">
     <Sidebar />
     
     <div class="pl-64">
-      <slot />
+      <main class="min-h-screen">
+        <slot />
+      </main>
     </div>
   </div>
 </template>

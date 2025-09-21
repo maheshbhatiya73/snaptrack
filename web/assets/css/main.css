@@ -1,6 +1,70 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Custom scrollbar for sidebar */
+/* Modern black and white design system CSS variables */
+:root {
+  --color-background: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F8F9FA;
+  --color-surface-elevated: #FFFFFF;
+  --color-primary-text: #000000;
+  --color-secondary-text: #6B7280;
+  --color-tertiary-text: #9CA3AF;
+  --color-accent: #000000;
+  --color-accent-hover: #1F2937;
+  --color-links-actions: #000000;
+  --color-links-hover: #374151;
+  --color-borders: #E5E7EB;
+  --color-borders-light: #F3F4F6;
+  --color-borders-dark: #D1D5DB;
+  --color-hover: #F9FAFB;
+  --color-hover-dark: #F3F4F6;
+  --color-success: #000000;
+  --color-success-light: #F3F4F6;
+  --color-warning: #000000;
+  --color-warning-light: #F3F4F6;
+  --color-error: #000000;
+  --color-error-light: #F3F4F6;
+  --color-info: #000000;
+  --color-info-light: #F3F4F6;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-primary-text);
+  line-height: 1.6;
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-borders);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary-text);
+}
+
 .sidebar-scroll::-webkit-scrollbar {
   width: 4px;
 }
@@ -10,29 +74,38 @@
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--color-borders);
   border-radius: 2px;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--color-secondary-text);
 }
 
 /* Smooth transitions */
 * {
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Custom focus styles */
 .focus-ring:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--color-links-actions);
   outline-offset: 2px;
+  border-radius: 4px;
 }
+
+/* Modern button styles - Using standard Tailwind classes instead */
+
+/* Modern card styles - Using standard Tailwind classes instead */
+
+/* Modern input styles - Using standard Tailwind classes instead */
+
+/* Status badges - Using inline Tailwind classes instead */
 
 /* Sidebar animations */
 .sidebar-enter-active,
 .sidebar-leave-active {
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-enter-from,
@@ -43,10 +116,14 @@
 /* Page content animation */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 0.3s ease-in-out;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .page-enter-from,
 .page-leave-to {
   opacity: 0;
 }
+
+/* Loading states - Using standard Tailwind classes instead */
+
+/* Additional utility classes - Using standard Tailwind classes instead */

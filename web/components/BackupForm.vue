@@ -77,28 +77,78 @@
             <label for="source" class="block text-sm font-medium text-slate-700 mb-2">
               Source Path *
             </label>
-            <input
-              id="source"
-              v-model="formData.source"
-              type="text"
-              required
-              class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="/var/www"
-            />
+            <div class="relative">
+              <input
+                id="source"
+                v-model="formData.source"
+                type="text"
+                required
+                :class="[
+                  'w-full px-3 py-2 pr-10 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                  sourceValid === null ? 'border-slate-300' :
+                  sourceValid ? 'border-green-500' : 'border-red-500'
+                ]"
+                placeholder="/var/www"
+              />
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                <div v-if="validatingSource" class="w-4 h-4">
+                  <svg class="animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <div v-else-if="sourceValid === true" class="w-4 h-4 text-green-500">
+                  <svg fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+                <div v-else-if="sourceValid === false" class="w-4 h-4 text-red-500">
+                  <svg fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <p v-if="sourceError" class="mt-1 text-sm text-red-600">{{ sourceError }}</p>
           </div>
 
           <div>
             <label for="destination" class="block text-sm font-medium text-slate-700 mb-2">
               Destination Path *
             </label>
-            <input
-              id="destination"
-              v-model="formData.destination"
-              type="text"
-              required
-              class="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="/mnt/backups/backup.tar.gz"
-            />
+            <div class="relative">
+              <input
+                id="destination"
+                v-model="formData.destination"
+                type="text"
+                required
+                :class="[
+                  'w-full px-3 py-2 pr-10 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                  destinationValid === null ? 'border-slate-300' :
+                  destinationValid ? 'border-green-500' : 'border-red-500'
+                ]"
+                placeholder="/mnt/backups/backup.tar.gz"
+              />
+              <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                <div v-if="validatingDestination" class="w-4 h-4">
+                  <svg class="animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <div v-else-if="destinationValid === true" class="w-4 h-4 text-green-500">
+                  <svg fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+                <div v-else-if="destinationValid === false" class="w-4 h-4 text-red-500">
+                  <svg fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <p v-if="destinationError" class="mt-1 text-sm text-red-600">{{ destinationError }}</p>
           </div>
 
           <div class="md:col-span-2">
@@ -119,6 +169,16 @@
               placeholder="Select target servers"
               searchable
             />
+            <div v-if="serverConnectionErrors.length > 0" class="mt-2">
+              <div class="text-sm text-red-600">
+                <p class="font-medium">Server connection issues:</p>
+                <ul class="list-disc list-inside mt-1">
+                  <li v-for="error in serverConnectionErrors" :key="error.serverId">
+                    {{ getServerName(error.serverId) }}: {{ error.error }}
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -147,7 +207,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { fetchServers } from '~/lib/api'
+import { fetchServers, validateServerPath, testServerConnection } from '~/lib/api'
 import MultiSelectDropdown from '~/components/MultiSelectDropdown.vue'
 
 const props = defineProps({
@@ -166,6 +226,15 @@ const emit = defineEmits(['submit', 'cancel'])
 const isEdit = !!props.backup
 const loadingServers = ref(false)
 const servers = ref([])
+
+// Validation states
+const validatingSource = ref(false)
+const validatingDestination = ref(false)
+const sourceValid = ref(null) // null = not validated, true = valid, false = invalid
+const destinationValid = ref(null)
+const sourceError = ref('')
+const destinationError = ref('')
+const serverConnectionErrors = ref([]) // Array of {serverId, error}
 
 const formData = reactive({
   name: '',
@@ -187,10 +256,18 @@ const serverOptions = computed(() => {
 
 const isFormValid = computed(() => {
   return formData.name.trim() !== '' &&
-         formData.source.trim() !== '' &&
-         formData.destination.trim() !== '' &&
-         formData.server_ids.length > 0
+          formData.source.trim() !== '' &&
+          formData.destination.trim() !== '' &&
+          formData.server_ids.length > 0 &&
+          sourceValid.value !== false &&
+          destinationValid.value !== false &&
+          serverConnectionErrors.value.length === 0
 })
+
+const getServerName = (serverId) => {
+  const server = servers.value.find(s => s.id === serverId)
+  return server ? server.name : `Server ${serverId}`
+}
 
 watch(() => props.backup, (newBackup) => {
   if (newBackup) {
@@ -206,6 +283,37 @@ watch(() => props.backup, (newBackup) => {
   }
 }, { immediate: true })
 
+// Watch for path changes and validate
+watch(() => formData.source, (newSource) => {
+  if (newSource && newSource.trim() !== '') {
+    // Debounce validation
+    setTimeout(() => validatePath(newSource, true), 500)
+  } else {
+    sourceValid.value = null
+    sourceError.value = ''
+  }
+})
+
+watch(() => formData.destination, (newDestination) => {
+  if (newDestination && newDestination.trim() !== '') {
+    // Debounce validation
+    setTimeout(() => validatePath(newDestination, false), 500)
+  } else {
+    destinationValid.value = null
+    destinationError.value = ''
+  }
+})
+
+// Watch for server selection changes and validate connections
+watch(() => formData.server_ids, (newServerIds) => {
+  if (newServerIds.length > 0) {
+    // Validate server connections
+    setTimeout(() => validateServerConnections(), 300)
+  } else {
+    serverConnectionErrors.value = []
+  }
+}, { deep: true })
+
 const loadServers = async () => {
   try {
     loadingServers.value = true
@@ -217,8 +325,76 @@ const loadServers = async () => {
   }
 }
 
-const handleSubmit = () => {
+const validatePath = async (path, isSource = true) => {
+  if (!path || path.trim() === '') return
+
+  const validating = isSource ? validatingSource : validatingDestination
+  const valid = isSource ? sourceValid : destinationValid
+  const error = isSource ? sourceError : destinationError
+
+  validating.value = true
+  valid.value = null
+  error.value = ''
+
+  try {
+    // For now, we'll validate against all selected servers
+    // In a more complex scenario, we might need to determine which server to validate against
+    // For simplicity, let's validate against the first server or assume local validation
+    if (formData.server_ids.length > 0) {
+      const serverId = formData.server_ids[0]
+      const result = await validateServerPath(serverId, path)
+      valid.value = result.valid
+      if (!result.valid) {
+        error.value = result.message
+      }
+    } else {
+      // If no servers selected, assume local validation (basic check)
+      valid.value = true // For now, just mark as valid if path is not empty
+    }
+  } catch (err) {
+    valid.value = false
+    error.value = err.message || 'Failed to validate path'
+  } finally {
+    validating.value = false
+  }
+}
+
+const validateServerConnections = async () => {
+  serverConnectionErrors.value = []
+
+  for (const serverId of formData.server_ids) {
+    try {
+      const result = await testServerConnection(serverId)
+      if (!result.success) {
+        serverConnectionErrors.value.push({
+          serverId,
+          error: result.message
+        })
+      }
+    } catch (err) {
+      serverConnectionErrors.value.push({
+        serverId,
+        error: err.message || 'Connection test failed'
+      })
+    }
+  }
+}
+
+const handleSubmit = async () => {
   if (!isFormValid.value) return
+
+  // Validate paths before submission
+  await validatePath(formData.source, true)
+  await validatePath(formData.destination, false)
+
+  // Check server connections for remote servers
+  await validateServerConnections()
+
+  // If there are validation errors, don't submit
+  if (sourceValid.value === false || destinationValid.value === false || serverConnectionErrors.value.length > 0) {
+    return
+  }
+
   emit('submit', formData)
 }
 
