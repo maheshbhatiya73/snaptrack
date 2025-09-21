@@ -1,31 +1,26 @@
 <template>
-  <div class="min-h-screen bg-slate-50">
-    <div class="bg-white border-b border-slate-200">
-      <div class="px-6 py-4">
+  <div class="min-h-screen bg-white">
+    <div class="bg-white border-b border-gray-200">
+      <div class="px-8 py-6">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-            <p class="mt-1 text-sm text-slate-600">Monitor your backup system status and manage your data</p>
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p class="mt-2 text-gray-600">Monitor your backup system status and manage your data</p>
           </div>
           <div class="flex items-center space-x-3">
-            <button 
+            <button
               @click="refreshDashboard"
               :disabled="loading"
-              class="inline-flex items-center px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
+              class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
               <svg class="w-4 h-4 mr-2" :class="{ 'animate-spin': loading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
               </svg>
               {{ loading ? 'Refreshing...' : 'Refresh' }}
             </button>
-            <button 
+            <button
               @click="toggleAutoRefresh"
-              :class="[
-                'inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200',
-                autoRefreshEnabled 
-                  ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-              ]"
+              :class="autoRefreshEnabled ? 'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500' : 'inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'"
             >
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -37,27 +32,28 @@
       </div>
     </div>
 
-    <main class="px-6 py-6">
+    <main class="px-8 py-8">
       <div v-if="loading && !stats" class="flex items-center justify-center py-20">
         <div class="text-center">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
-          <p class="mt-6 text-lg text-slate-600 font-medium">Loading dashboard...</p>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p class="mt-6 text-lg text-gray-600 font-medium">Loading dashboard...</p>
         </div>
       </div>
 
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+      <!-- Error State -->
+      <div v-else-if="error" class="bg-white border border-red-200 rounded-lg p-6 mb-8">
         <div class="flex items-start">
           <div class="flex-shrink-0">
-            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
           <div class="ml-4">
             <h3 class="text-lg font-semibold text-red-800">Error loading dashboard</h3>
-            <p class="text-red-700 mt-2">{{ error }}</p>
-            <button 
+            <p class="text-gray-600 mt-2">{{ error }}</p>
+            <button
               @click="refreshDashboard"
-              class="mt-4 inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700"
+              class="mt-4 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
               Try Again
             </button>
@@ -65,17 +61,19 @@
         </div>
       </div>
 
+      <!-- Main Content -->
       <div v-else>
+        <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center">
-              <div class="p-2 rounded-lg" :class="systemStatus === 'online' ? 'bg-green-100' : 'bg-red-100'">
+              <div class="p-3 rounded-lg" :class="systemStatus === 'online' ? 'bg-green-100' : 'bg-red-100'">
                 <svg class="w-6 h-6" :class="systemStatus === 'online' ? 'text-green-600' : 'text-red-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </div>
               <div class="ml-4">
-                <p class="text-sm font-medium text-slate-600">System Status</p>
+                <p class="text-sm font-medium text-gray-600">System Status</p>
                 <p class="text-2xl font-bold" :class="systemStatus === 'online' ? 'text-green-600' : 'text-red-600'">
                   {{ systemStatus === 'online' ? 'Online' : 'Offline' }}
                 </p>
@@ -83,73 +81,76 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center">
-              <div class="p-2 bg-blue-100 rounded-lg">
+              <div class="p-3 bg-blue-100 rounded-lg">
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                 </svg>
               </div>
               <div class="ml-4">
-                <p class="text-sm font-medium text-slate-600">Total Backups</p>
+                <p class="text-sm font-medium text-gray-600">Total Backups</p>
                 <p class="text-2xl font-bold text-blue-600">{{ formatNumber(stats?.total_backups || 0) }}</p>
               </div>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center">
-              <div class="p-2 bg-purple-100 rounded-lg">
-                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="p-3 bg-yellow-100 rounded-lg">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/>
                 </svg>
               </div>
               <div class="ml-4">
-                <p class="text-sm font-medium text-slate-600">Storage Used</p>
-                <p class="text-2xl font-bold text-purple-600">{{ formatStorage(stats?.storage_used || 0) }}</p>
+                <p class="text-sm font-medium text-gray-600">Storage Used</p>
+                <p class="text-2xl font-bold text-yellow-600">{{ formatStorage(stats?.storage_used || 0) }}</p>
               </div>
             </div>
           </div>
 
-          <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+          <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center">
-              <div class="p-2 bg-amber-100 rounded-lg">
-                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="p-3 bg-gray-100 rounded-lg">
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </div>
               <div class="ml-4">
-                <p class="text-sm font-medium text-slate-600">Last Backup</p>
-                <p class="text-2xl font-bold text-amber-600">{{ formatLastBackup(stats?.last_backup) }}</p>
+                <p class="text-sm font-medium text-gray-600">Last Backup</p>
+                <p class="text-2xl font-bold text-gray-900">{{ formatLastBackup(stats?.last_backup) }}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200">
-            <h2 class="text-lg font-semibold text-slate-900">Recent Activity</h2>
+        <!-- Recent Activity -->
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Recent Activity</h2>
           </div>
           <div class="p-6">
-            <div v-if="recentActivity.length === 0" class="text-center py-8 text-slate-500">
-              <svg class="w-12 h-12 mx-auto mb-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-              <p>No recent activity</p>
+            <div v-if="recentActivity.length === 0" class="text-center py-12">
+              <div class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+              </div>
+              <p class="text-gray-500">No recent activity</p>
             </div>
             <div v-else class="space-y-4">
-              <div 
-                v-for="activity in recentActivity" 
+              <div
+                v-for="activity in recentActivity"
                 :key="activity.id"
-                class="flex items-center space-x-3"
+                class="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200"
               >
-                <div 
-                  class="w-2 h-2 rounded-full"
+                <div
+                  class="w-3 h-3 rounded-full flex-shrink-0"
                   :class="getActivityColor(activity.type)"
                 ></div>
-                <div class="flex-1">
-                  <p class="text-sm text-slate-900">{{ activity.message }}</p>
-                  <p class="text-xs text-slate-500">{{ formatTimeAgo(activity.timestamp) }}</p>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900">{{ activity.message }}</p>
+                  <p class="text-xs text-gray-500">{{ formatTimeAgo(activity.timestamp) }}</p>
                 </div>
               </div>
             </div>
@@ -293,12 +294,12 @@ const getActivityColor = (type) => {
   const colors = {
     success: 'bg-green-500',
     info: 'bg-blue-500',
-    warning: 'bg-amber-500',
+    warning: 'bg-yellow-500',
     error: 'bg-red-500',
-    backup: 'bg-purple-500',
-    system: 'bg-slate-500'
+    backup: 'bg-gray-900',
+    system: 'bg-gray-500'
   }
-  return colors[type] || 'bg-slate-500'
+  return colors[type] || 'bg-gray-500'
 }
 
 onMounted(() => {

@@ -127,7 +127,12 @@ export async function deleteBackup(id) {
     throw new Error(error.message || 'Failed to delete backup')
   }
 
-  return res.json()
+  // For DELETE requests, server may return 204 No Content with no body
+  if (res.status === 204) {
+    return { success: true }
+  }
+
+  return res.json().catch(() => ({ success: true }))
 }
 
 export async function executeBackup(id) {
@@ -233,7 +238,12 @@ export async function deleteServer(id) {
     throw new Error(error.message || 'Failed to delete server')
   }
 
-  return res.json()
+  // For DELETE requests, server may return 204 No Content with no body
+  if (res.status === 204) {
+    return { success: true }
+  }
+
+  return res.json().catch(() => ({ success: true }))
 }
 
 export async function testServerConnection(id) {
@@ -313,6 +323,33 @@ export async function fetchServerStatuses() {
 
   if (!res.ok) {
     throw new Error('Failed to fetch server statuses')
+  }
+
+  return res.json()
+}
+
+export async function checkServerNameExists(name, excludeId = null) {
+  const authData = getAuthData()
+  const servers = await fetchServers()
+
+  // Check if any server has the same name (excluding the current server if editing)
+  return servers.some(server => server.name === name && server.id !== excludeId)
+}
+
+export async function validateServerPath(serverId, path) {
+  const authData = getAuthData()
+  const res = await fetch(`${API_BASE}/servers/${serverId}/validate-path`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${authData.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ path })
+  })
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    throw new Error(error.message || 'Failed to validate path')
   }
 
   return res.json()
