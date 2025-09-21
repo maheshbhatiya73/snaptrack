@@ -2,8 +2,10 @@ package routes
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
+	"time"
 	"snaptrack/auth"
 	"snaptrack/db"
 
@@ -38,6 +40,55 @@ func getServer(c *fiber.Ctx) error {
 	return c.JSON(server)
 }
 
+// validateRemoteServer performs validation for remote servers
+func validateRemoteServer(host string, sshUser, sshKeyPath *string, sshPort *int) error {
+	// First, ping the host to check if it's reachable
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, "80"), 5*time.Second)
+	if err != nil {
+		// Try common ports if 80 fails
+		conn, err = net.DialTimeout("tcp", net.JoinHostPort(host, "443"), 5*time.Second)
+		if err != nil {
+			return fmt.Errorf("host %s is not reachable: %v", host, err)
+		}
+	}
+	if conn != nil {
+		conn.Close()
+	}
+
+	// Validate SSH connection
+	if sshUser == nil || sshKeyPath == nil || sshPort == nil {
+		return fmt.Errorf("SSH configuration incomplete")
+	}
+
+	key, err := os.ReadFile(*sshKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read SSH key: %v", err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to parse SSH key: %v", err)
+	}
+
+	config := &ssh.ClientConfig{
+		User: *sshUser,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+
+	addr := fmt.Sprintf("%s:%d", host, *sshPort)
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return fmt.Errorf("SSH connection failed: %v", err)
+	}
+	defer client.Close()
+
+	return nil
+}
+
 func createServer(c *fiber.Ctx) error {
 	var server db.Server
 	if err := c.BodyParser(&server); err != nil {
@@ -48,6 +99,13 @@ func createServer(c *fiber.Ctx) error {
 	var existingServer db.Server
 	if err := db.DB.Unscoped().Where("name = ?", server.Name).First(&existingServer).Error; err == nil {
 		return c.Status(409).JSON(fiber.Map{"error": "Server name already exists"})
+	}
+
+	// Validate remote server if type is remote
+	if server.Type == "remote" {
+		if err := validateRemoteServer(server.Host, server.SSHUser, server.SSHKeyPath, server.SSHPort); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": fmt.Sprintf("Server validation failed: %v", err)})
+		}
 	}
 
 	if err := db.DB.Create(&server).Error; err != nil {
@@ -77,6 +135,38 @@ func updateServer(c *fiber.Ctx) error {
 		var existingServer db.Server
 		if err := db.DB.Unscoped().Where("name = ? AND id != ?", updateData.Name, server.ID).First(&existingServer).Error; err == nil {
 			return c.Status(409).JSON(fiber.Map{"error": "Server name already exists"})
+		}
+	}
+
+	// Validate remote server configuration if updating to remote or updating remote fields
+	finalType := updateData.Type
+	if finalType == "" {
+		finalType = server.Type
+	}
+
+	finalHost := updateData.Host
+	if finalHost == "" {
+		finalHost = server.Host
+	}
+
+	finalSSHUser := updateData.SSHUser
+	if finalSSHUser == nil {
+		finalSSHUser = server.SSHUser
+	}
+
+	finalSSHPort := updateData.SSHPort
+	if finalSSHPort == nil {
+		finalSSHPort = server.SSHPort
+	}
+
+	finalSSHKeyPath := updateData.SSHKeyPath
+	if finalSSHKeyPath == nil {
+		finalSSHKeyPath = server.SSHKeyPath
+	}
+
+	if finalType == "remote" {
+		if err := validateRemoteServer(finalHost, finalSSHUser, finalSSHKeyPath, finalSSHPort); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": fmt.Sprintf("Server validation failed: %v", err)})
 		}
 	}
 

@@ -184,25 +184,42 @@ export async function fetchServer(id) {
 
   return res.json()
 }
-
 export async function createServer(serverData) {
-  const authData = getAuthData()
-  const res = await fetch(`${API_BASE}/servers`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${authData.token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(serverData)
-  })
+  const authData = getAuthData();
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}))
-    throw new Error(error.message || 'Failed to create server')
+  try {
+    const res = await fetch(`${API_BASE}/servers`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authData.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(serverData),
+    });
+
+    // Always parse JSON safely
+    const data = await res.json().catch(() => ({}));
+
+    // Instead of throwing -> return { success: false }
+    if (!res.ok) {
+      return {
+        success: false,
+        message: data.message || data.error || "Failed to create server",
+      };
+    }
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err.message || "Network error",
+    };
   }
-
-  return res.json()
 }
+
 
 export async function updateServer(id, serverData) {
   const authData = getAuthData()
