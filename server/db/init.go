@@ -1,7 +1,7 @@
 package db
 
 func Init() {
-	err := DB.AutoMigrate(&Server{}, &Backup{}, &Log{})
+	err := DB.AutoMigrate(&Server{}, &Backup{}, &Log{}, &BackupProgress{})
 	if err != nil {
 		panic("failed to migrate database schema: " + err.Error())
 	}
