@@ -7,7 +7,7 @@
             {{ isEdit ? 'Edit Server' : 'Add New Server' }}
           </h2>
           <div class="flex gap-4">
-            <div v-if="formData.type === 'remote' && isEdit" class="">
+            <div v-if="formData.type === 'remote' && isEdit">
               <button type="button" @click="testConnection" :disabled="testingConnection"
                 class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors">
                 <svg v-if="testingConnection" class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor"
@@ -34,11 +34,11 @@
 
       <form @submit.prevent="handleSubmit" class="px-6 py-6">
         <div class="space-y-6">
+          <!-- Server Name -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Server Name *
             </label>
-
             <div class="relative">
               <input v-model="formData.name" type="text" required :class="[
                 'w-full px-3 py-2 pr-10 border rounded-md bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors',
@@ -73,6 +73,7 @@
             <p v-if="nameError" class="mt-1 text-sm text-red-600">{{ nameError }}</p>
           </div>
 
+          <!-- Server Type -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Server Type *
@@ -84,6 +85,22 @@
             </select>
           </div>
 
+          <!-- Transfer Type (Only for Remote) -->
+          <div v-if="formData.type === 'remote'">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Transfer Type *
+            </label>
+            <select v-model="formData.TransferType" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors">
+              <option value="rsync">Rsync</option>
+              <option value="scp">SCP</option>
+            </select>
+          </div>
+          <div v-else class="text-sm text-gray-600">
+            <p><strong>Transfer Type:</strong> Local (automatic)</p>
+          </div>
+
+          <!-- Host (Only for Remote) -->
           <div v-if="formData.type === 'remote'">
             <label class="block text-sm font-medium text-gray-700 mb-2">
               Host/IP Address *
@@ -96,42 +113,33 @@
             <p><strong>Local Server:</strong> This will use the local machine (localhost) for operations.</p>
           </div>
 
+          <!-- SSH Configuration (Only for Remote) -->
           <div v-if="formData.type === 'remote'" class="space-y-4">
             <h3 class="text-lg font-medium text-gray-900">SSH Configuration</h3>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  SSH Username *
-                </label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">SSH Username *</label>
                 <input v-model="formData.ssh_user" type="text" required
                   class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   placeholder="ubuntu, root, etc." />
               </div>
-
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  SSH Port *
-                </label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">SSH Port *</label>
                 <input v-model="formData.ssh_port" type="number" required min="1" max="65535"
                   class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   placeholder="22" />
               </div>
             </div>
-
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                SSH Key Path *
-              </label>
+              <label class="block text-sm font-medium text-gray-700 mb-2">SSH Key Path *</label>
               <input v-model="formData.ssh_key_path" type="text" required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 placeholder="/home/user/.ssh/id_rsa" />
-              <p class="mt-1 text-sm text-gray-500">
-                Path to your private SSH key file
-              </p>
+              <p class="mt-1 text-sm text-gray-500">Path to your private SSH key file</p>
             </div>
           </div>
 
+          <!-- Enabled Checkbox -->
           <div>
             <label class="flex items-center">
               <input v-model="formData.enabled" type="checkbox"
@@ -139,10 +147,9 @@
               <span class="ml-2 text-sm text-gray-700">Server is enabled</span>
             </label>
           </div>
-
-
         </div>
 
+        <!-- Buttons -->
         <div class="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
           <button type="button" @click="$emit('close')"
             class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
@@ -163,23 +170,16 @@ import { ref, reactive, watch, onMounted } from 'vue'
 import { createServer, updateServer, testServerConnection, checkServerNameExists } from '~/lib/api'
 
 const props = defineProps({
-  server: {
-    type: Object,
-    default: null
-  },
-  isEdit: {
-    type: Boolean,
-    default: false
-  }
+  server: { type: Object, default: null },
+  isEdit: { type: Boolean, default: false }
 })
-
-const emit = defineEmits(['close', 'success'])
+const emit = defineEmits(['close', 'success', 'error'])
 
 const loading = ref(false)
 const testingConnection = ref(false)
 
 // Validation states
-const nameValid = ref(null) // null = not validated, true = valid, false = invalid
+const nameValid = ref(null)
 const nameError = ref('')
 const validatingName = ref(false)
 
@@ -190,9 +190,11 @@ const formData = reactive({
   ssh_user: '',
   ssh_port: 22,
   ssh_key_path: '',
+  TransferType: 'rsync',
   enabled: true
 })
 
+// Prefill when editing
 watch(() => props.server, (newServer) => {
   if (newServer) {
     Object.assign(formData, {
@@ -201,16 +203,16 @@ watch(() => props.server, (newServer) => {
       type: newServer.type || 'remote',
       ssh_user: newServer.ssh_user || '',
       ssh_port: newServer.ssh_port || 22,
+      TransferType: newServer.TransferType || (newServer.type === 'local' ? 'local' : 'rsync'),
       ssh_key_path: newServer.ssh_key_path || '',
       enabled: newServer.enabled !== false
     })
   }
 }, { immediate: true })
 
-// Watch for name changes and validate uniqueness
+// Validate server name
 watch(() => formData.name, (newName) => {
   if (newName && newName.trim() !== '') {
-    // Debounce validation
     setTimeout(() => validateServerName(newName), 500)
   } else {
     nameValid.value = null
@@ -220,19 +222,13 @@ watch(() => formData.name, (newName) => {
 
 const validateServerName = async (name) => {
   if (!name || name.trim() === '') return
-
   validatingName.value = true
   nameValid.value = null
   nameError.value = ''
-
   try {
     const exists = await checkServerNameExists(name, props.isEdit ? props.server?.id : null)
-    if (exists) {
-      nameValid.value = false
-      nameError.value = 'Server name already exists'
-    } else {
-      nameValid.value = true
-    }
+    nameValid.value = !exists
+    if (exists) nameError.value = 'Server name already exists'
   } catch (err) {
     nameValid.value = false
     nameError.value = 'Failed to validate server name'
@@ -241,41 +237,24 @@ const validateServerName = async (name) => {
   }
 }
 
-
 const handleSubmit = async () => {
-  if (!formData.name || formData.name.trim() === '') {
-    emit('error', 'Server name is required')
-    return
-  }
-
+  if (!formData.name.trim()) return emit('error', 'Server name is required')
   if (formData.type === 'remote' && (!formData.host || !formData.ssh_user || !formData.ssh_key_path)) {
-    emit('error', 'Please fill in all required fields for remote server')
-    return
+    return emit('error', 'Please fill in all required fields for remote server')
   }
 
-  if (nameValid.value === null || nameValid.value === undefined) {
-    await validateServerName(formData.name)
-  }
-
+  if (nameValid.value === null) await validateServerName(formData.name)
   if (validatingName.value) {
     await new Promise(resolve => {
       const unwatch = watch(validatingName, (isValidating) => {
-        if (!isValidating) {
-          unwatch()
-          resolve()
-        }
+        if (!isValidating) { unwatch(); resolve() }
       })
     })
   }
-
-  if (nameValid.value === false) {
-    emit('error', nameError.value || 'Server name validation failed')
-    return
-  }
+  if (nameValid.value === false) return emit('error', nameError.value || 'Server name validation failed')
 
   try {
     loading.value = true
-
     const serverData = {
       name: formData.name,
       type: formData.type,
@@ -283,58 +262,41 @@ const handleSubmit = async () => {
       host: formData.type === 'remote' ? formData.host : 'localhost',
       ssh_user: formData.type === 'remote' ? formData.ssh_user : undefined,
       ssh_port: formData.type === 'remote' ? parseInt(formData.ssh_port) : undefined,
-      ssh_key_path: formData.type === 'remote' ? formData.ssh_key_path : undefined
+      ssh_key_path: formData.type === 'remote' ? formData.ssh_key_path : undefined,
+      TransferType: formData.type === 'remote' ? formData.TransferType : 'local'
     }
-
     if (props.isEdit) {
       await updateServer(props.server.id, serverData)
       emit('success')
       emit('close')
     } else {
       const result = await createServer(serverData)
-
-      if (result.success) {
-        emit('success')
-        emit('close')
-      } else {
-        emit('error', result.message)
-        // ❌ Keep modal open if error
-      }
+      result.success ? (emit('success'), emit('close')) : emit('error', result.message)
     }
   } catch (error) {
     console.error('Failed to save server:', error)
     emit('error', error.message || 'Failed to save server')
-    // ❌ Keep modal open
   } finally {
     loading.value = false
   }
 }
 
-
 const testConnection = async () => {
   if (!props.isEdit || !props.server?.id) return
-
   try {
     testingConnection.value = true
     const result = await testServerConnection(props.server.id)
-
-    if (result.success) {
-      emit('success', 'Connection test successful!')
-    } else {
-      emit('error', `Connection test failed: ${result.message || 'Unknown error'}`)
-    }
+    result.success ? emit('success', 'Connection test successful!')
+                   : emit('error', `Connection test failed: ${result.message || 'Unknown error'}`)
   } catch (error) {
     console.error('Connection test failed:', error)
-    alert(`Connection test failed: ${error.message}`)
+    emit('error', `Connection test failed: ${error.message}`)
   } finally {
     testingConnection.value = false
   }
 }
 
 onMounted(() => {
-  // Validate existing server name when editing
-  if (props.isEdit && formData.name) {
-    validateServerName(formData.name)
-  }
+  if (props.isEdit && formData.name) validateServerName(formData.name)
 })
 </script>
