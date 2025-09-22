@@ -33,8 +33,8 @@ type Backup struct {
 	ServerIDs    datatypes.JSON `gorm:"type:jsonb;not null" json:"server_ids"` // array of server IDs
 	SizeBytes    int64          `json:"size_bytes"`
 	Checksum     *string        `json:"checksum"`
-	StartedAt    time.Time      `json:"started_at"`
-	CompletedAt  time.Time      `json:"completed_at"`
+	StartedAt    *time.Time     `json:"started_at"`
+	CompletedAt  *time.Time     `json:"completed_at"`
 	DurationSec  int64          `json:"duration_sec"`
 	ExecutedBy   string         `gorm:"not null" json:"executed_by"`
 	CreatedAt    time.Time      `json:"created_at"`
@@ -49,4 +49,20 @@ type Log struct {
 	Context   *string        `json:"context"`
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+type BackupProgress struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	BackupID    uint      `gorm:"not null;index" json:"backup_id"`
+	Backup      Backup    `gorm:"foreignKey:BackupID" json:"-"`
+	Status      string    `gorm:"not null" json:"status"` // pending / running / completed / failed
+	Progress    int       `gorm:"default:0" json:"progress"` // 0-100
+	Message     string    `gorm:"not null" json:"message"`
+	CurrentFile *string   `json:"current_file"`
+	BytesProcessed int64  `gorm:"default:0" json:"bytes_processed"`
+	TotalBytes    *int64  `json:"total_bytes"`
+	SpeedBPS     *int64   `json:"speed_bps"` // bytes per second
+	ETASeconds  *int64   `json:"eta_seconds"` // estimated time remaining
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }

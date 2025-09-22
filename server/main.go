@@ -29,6 +29,7 @@ func main() {
 
 	api.RegisterRoutes(app)
 	api.RegisterAuthRoutes(app)
+	api.RegisterWebSocketRoutes(app)
 
 	log.Println("Server running at http://localhost:8080")
 	log.Fatal(app.Listen(":8080"))

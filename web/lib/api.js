@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8080/api'
+const API_BASE = `${process.env.NUXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api`
 
 export async function loginUser({ username, password }) {
   const res = await fetch(`${API_BASE}/login`, {
@@ -370,4 +370,80 @@ export async function validateServerPath(serverId, path) {
   }
 
   return res.json()
+}
+
+export async function fetchRunningBackups() {
+  const authData = getAuthData()
+  const res = await fetch(`${API_BASE}/backups/processes/running`, {
+    headers: {
+      'Authorization': `Bearer ${authData.token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!res.ok) {
+    throw new Error('Failed to fetch running backups')
+  }
+
+  return res.json()
+}
+
+export async function fetchBackupProgress(backupId) {
+  const authData = getAuthData()
+  const res = await fetch(`${API_BASE}/backups/${backupId}/progress`, {
+    headers: {
+      'Authorization': `Bearer ${authData.token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!res.ok) {
+    throw new Error('Failed to fetch backup progress')
+  }
+
+  return res.json()
+}
+
+export async function deleteAllProcesses() {
+  const authData = getAuthData()
+  const res = await fetch(`${API_BASE}/backups/processes`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${authData.token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    throw new Error(error.message || 'Failed to delete all processes')
+  }
+
+  if (res.status === 204) {
+    return { success: true }
+  }
+
+  return res.json().catch(() => ({ success: true }))
+}
+
+export async function deleteProcess(id) {
+  const authData = getAuthData()
+  const res = await fetch(`${API_BASE}/backups/processes/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${authData.token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    throw new Error(error.message || 'Failed to delete process')
+  }
+
+  if (res.status === 204) {
+    return { success: true }
+  }
+
+  return res.json().catch(() => ({ success: true }))
 }
