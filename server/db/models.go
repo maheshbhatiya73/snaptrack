@@ -15,6 +15,7 @@ type Server struct {
 	SSHPort     *int           `json:"ssh_port"`
 	SSHKeyPath  *string        `json:"ssh_key_path"`
 	Type        string         `gorm:"not null" json:"type"` // local / remote
+	TransferType *string `json:"transferType"`
 	Enabled     bool           `gorm:"default:true" json:"enabled"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
@@ -30,7 +31,8 @@ type Backup struct {
 	Type         string         `gorm:"not null" json:"type"`      // full / incremental
 	ScheduleType string         `gorm:"not null;default:one_time" json:"schedule_type"`
 	Status       string         `gorm:"not null" json:"status"`    // scheduled / running / success / failed
-	ServerIDs    datatypes.JSON `gorm:"type:jsonb;not null" json:"server_ids"` // array of server IDs
+	ServerIDs    datatypes.JSON `gorm:"type:jsonb;not null" json:"server_ids"`
+	
 	SizeBytes    int64          `json:"size_bytes"`
 	Checksum     *string        `json:"checksum"`
 	StartedAt    *time.Time     `json:"started_at"`

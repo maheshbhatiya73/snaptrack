@@ -326,38 +326,49 @@ const loadServers = async () => {
 }
 
 const validatePath = async (path, isSource = true) => {
-  if (!path || path.trim() === '') return
+  if (!path || path.trim() === '') return;
 
-  const validating = isSource ? validatingSource : validatingDestination
-  const valid = isSource ? sourceValid : destinationValid
-  const error = isSource ? sourceError : destinationError
+  const validating = isSource ? validatingSource : validatingDestination;
+  const valid = isSource ? sourceValid : destinationValid;
+  const error = isSource ? sourceError : destinationError;
 
-  validating.value = true
-  valid.value = null
-  error.value = ''
+  validating.value = true;
+  valid.value = null;
+  error.value = '';
 
   try {
-    // For now, we'll validate against all selected servers
-    // In a more complex scenario, we might need to determine which server to validate against
-    // For simplicity, let's validate against the first server or assume local validation
-    if (formData.server_ids.length > 0) {
-      const serverId = formData.server_ids[0]
-      const result = await validateServerPath(serverId, path)
-      valid.value = result.valid
-      if (!result.valid) {
-        error.value = result.message
+    let allValid = true;
+    const errors = [];
+
+    // If server_ids selected, validate on each server
+    const targetServers = formData.server_ids.length > 0 ? formData.server_ids : [null]; // null = local
+
+    for (const serverId of targetServers) {
+      try {
+        // serverId = null means local path
+        const res = await validateServerPath(serverId, path);
+        if (!res.valid) {
+          allValid = false;
+          errors.push(serverId ? `${getServerName(serverId)}: ${res.message}` : `Local: ${res.message}`);
+        }
+      } catch (e) {
+        allValid = false;
+        errors.push(serverId ? `${getServerName(serverId)}: ${e.message || 'Validation failed'}` : `Local: ${e.message || 'Validation failed'}`);
       }
-    } else {
-      // If no servers selected, assume local validation (basic check)
-      valid.value = true // For now, just mark as valid if path is not empty
     }
+
+    valid.value = allValid;
+    if (!allValid) error.value = errors.join('; ');
+
   } catch (err) {
-    valid.value = false
-    error.value = err.message || 'Failed to validate path'
+    valid.value = false;
+    error.value = err.message || 'Failed to validate path';
   } finally {
-    validating.value = false
+    validating.value = false;
   }
-}
+};
+
+
 
 const validateServerConnections = async () => {
   serverConnectionErrors.value = []
