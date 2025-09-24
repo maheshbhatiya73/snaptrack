@@ -73,9 +73,46 @@
         <h3 class="text-lg font-semibold text-slate-900 mb-4">Paths & Servers</h3>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              Target Servers *
+            </label>
+            <div v-if="loadingServers" class="text-center py-4">
+              <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <p class="mt-2 text-sm text-slate-600">Loading servers...</p>
+            </div>
+            <div v-else-if="servers.length === 0" class="text-center py-4 text-slate-500">
+              <p class="text-sm">No servers available</p>
+            </div>
+            <CustomDropdown
+              v-if="singleServer"
+              v-model="formData.server_id"
+              :options="serverOptions"
+              placeholder="Select target server"
+              searchable
+            />
+            <MultiSelectDropdown
+              v-else
+              v-model="formData.server_ids"
+              :options="serverOptions"
+              placeholder="Select target servers"
+              searchable
+            />
+            <div v-if="serverConnectionErrors.length > 0" class="mt-2">
+              <div class="text-sm text-red-600">
+                <p class="font-medium">Server connection issues:</p>
+                <ul class="list-disc list-inside mt-1">
+                  <li v-for="error in serverConnectionErrors" :key="error.serverId">
+                    {{ getServerName(error.serverId) }}: {{ error.error }}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="hasSelectedServer">
             <label for="source" class="block text-sm font-medium text-slate-700 mb-2">
-              Source Path *
+              Source Path * <span class="text-xs text-slate-500" v-if="selectedServerType === 'remote'">(validated on local)</span>
             </label>
             <div class="relative">
               <input
@@ -88,7 +125,7 @@
                   sourceValid === null ? 'border-slate-300' :
                   sourceValid ? 'border-green-500' : 'border-red-500'
                 ]"
-                placeholder="/var/www"
+                :placeholder="selectedServerType === 'remote' ? '/var/www (local source)' : '/var/www'"
               />
               <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                 <div v-if="validatingSource" class="w-4 h-4">
@@ -112,9 +149,9 @@
             <p v-if="sourceError" class="mt-1 text-sm text-red-600">{{ sourceError }}</p>
           </div>
 
-          <div>
+          <div v-if="hasSelectedServer">
             <label for="destination" class="block text-sm font-medium text-slate-700 mb-2">
-              Destination Path *
+              Destination Path * <span class="text-xs text-slate-500" v-if="selectedServerType === 'remote'">(validated on remote)</span>
             </label>
             <div class="relative">
               <input
@@ -127,7 +164,7 @@
                   destinationValid === null ? 'border-slate-300' :
                   destinationValid ? 'border-green-500' : 'border-red-500'
                 ]"
-                placeholder="/mnt/backups/backup.tar.gz"
+                :placeholder="selectedServerType === 'remote' ? '/path/on/remote/server' : '/mnt/backups/backup.tar.gz'"
               />
               <div class="absolute inset-y-0 right-0 flex items-center pr-3">
                 <div v-if="validatingDestination" class="w-4 h-4">
@@ -150,36 +187,7 @@
             </div>
             <p v-if="destinationError" class="mt-1 text-sm text-red-600">{{ destinationError }}</p>
           </div>
-
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-slate-700 mb-2">
-              Target Servers *
-            </label>
-            <div v-if="loadingServers" class="text-center py-4">
-              <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <p class="mt-2 text-sm text-slate-600">Loading servers...</p>
-            </div>
-            <div v-else-if="servers.length === 0" class="text-center py-4 text-slate-500">
-              <p class="text-sm">No servers available</p>
-            </div>
-            <MultiSelectDropdown
-              v-else
-              v-model="formData.server_ids"
-              :options="serverOptions"
-              placeholder="Select target servers"
-              searchable
-            />
-            <div v-if="serverConnectionErrors.length > 0" class="mt-2">
-              <div class="text-sm text-red-600">
-                <p class="font-medium">Server connection issues:</p>
-                <ul class="list-disc list-inside mt-1">
-                  <li v-for="error in serverConnectionErrors" :key="error.serverId">
-                    {{ getServerName(error.serverId) }}: {{ error.error }}
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          
         </div>
       </div>
 
@@ -209,6 +217,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { fetchServers, validateServerPath, testServerConnection } from '~/lib/api'
 import MultiSelectDropdown from '~/components/MultiSelectDropdown.vue'
+import CustomDropdown from '~/components/CustomDropdown.vue'
 
 const props = defineProps({
   backup: {
@@ -216,6 +225,10 @@ const props = defineProps({
     default: null
   },
   loading: {
+    type: Boolean,
+    default: false
+  },
+  singleServer: {
     type: Boolean,
     default: false
   }
@@ -242,6 +255,7 @@ const formData = reactive({
   source: '',
   destination: '',
   file_type: 'tar',
+  server_id: null,
   server_ids: [],
   schedule_type: 'one_time'
 })
@@ -254,11 +268,30 @@ const serverOptions = computed(() => {
   }))
 })
 
+const selectedServers = computed(() => {
+  return props.singleServer
+    ? (formData.server_id !== null ? [formData.server_id] : [])
+    : formData.server_ids
+})
+
+const selectedServerType = computed(() => {
+  if (selectedServers.value.length === 0) return null
+  const first = servers.value.find(s => s.id === selectedServers.value[0])
+  return first ? (first.type || null) : null
+})
+
+const hasSelectedServer = computed(() => {
+  return props.singleServer
+    ? formData.server_id !== null
+    : formData.server_ids.length > 0
+})
+
 const isFormValid = computed(() => {
+  const hasServer = props.singleServer ? formData.server_id !== null : formData.server_ids.length > 0
   return formData.name.trim() !== '' &&
           formData.source.trim() !== '' &&
           formData.destination.trim() !== '' &&
-          formData.server_ids.length > 0 &&
+          hasServer &&
           sourceValid.value !== false &&
           destinationValid.value !== false &&
           serverConnectionErrors.value.length === 0
@@ -278,6 +311,7 @@ watch(() => props.backup, (newBackup) => {
       destination: newBackup.destination || '',
       file_type: newBackup.file_type || 'tar',
       server_ids: newBackup.server_ids || [],
+      server_id: Array.isArray(newBackup.server_ids) && newBackup.server_ids.length > 0 ? newBackup.server_ids[0] : (newBackup.server_id || null),
       schedule_type: newBackup.schedule_type || 'one_time'
     })
   }
@@ -286,7 +320,6 @@ watch(() => props.backup, (newBackup) => {
 // Watch for path changes and validate
 watch(() => formData.source, (newSource) => {
   if (newSource && newSource.trim() !== '') {
-    // Debounce validation
     setTimeout(() => validatePath(newSource, true), 500)
   } else {
     sourceValid.value = null
@@ -296,7 +329,6 @@ watch(() => formData.source, (newSource) => {
 
 watch(() => formData.destination, (newDestination) => {
   if (newDestination && newDestination.trim() !== '') {
-    // Debounce validation
     setTimeout(() => validatePath(newDestination, false), 500)
   } else {
     destinationValid.value = null
@@ -306,13 +338,24 @@ watch(() => formData.destination, (newDestination) => {
 
 // Watch for server selection changes and validate connections
 watch(() => formData.server_ids, (newServerIds) => {
-  if (newServerIds.length > 0) {
-    // Validate server connections
-    setTimeout(() => validateServerConnections(), 300)
-  } else {
-    serverConnectionErrors.value = []
+  if (!props.singleServer) {
+    if (newServerIds.length > 0) {
+      setTimeout(() => validateServerConnections(), 300)
+    } else {
+      serverConnectionErrors.value = []
+    }
   }
 }, { deep: true })
+
+watch(() => formData.server_id, (newServerId) => {
+  if (props.singleServer) {
+    if (newServerId !== null) {
+      setTimeout(() => validateServerConnections(), 300)
+    } else {
+      serverConnectionErrors.value = []
+    }
+  }
+})
 
 const loadServers = async () => {
   try {
@@ -340,8 +383,31 @@ const validatePath = async (path, isSource = true) => {
     let allValid = true;
     const errors = [];
 
-    // If server_ids selected, validate on each server
-    const targetServers = formData.server_ids.length > 0 ? formData.server_ids : [null]; // null = local
+    // Determine validation targets based on selected server type
+    const serverIds = selectedServers.value;
+    const serverType = selectedServerType.value;
+
+    let targetServers = [];
+    if (serverType === 'remote') {
+      if (isSource) {
+        // Source path validated locally when backing up from local -> remote
+        targetServers = [null];
+      } else {
+        // Destination path validated on selected remote server(s)
+        targetServers = serverIds;
+      }
+    } else {
+      // Local server or not selected yet -> validate locally
+      targetServers = [null];
+    }
+
+    // If destination for remote but no server selected yet, postpone validation gracefully
+    if (!isSource && serverType === 'remote' && serverIds.length === 0) {
+      validating.value = false;
+      valid.value = null;
+      error.value = 'Select a remote server to validate destination path';
+      return;
+    }
 
     for (const serverId of targetServers) {
       try {
@@ -373,7 +439,11 @@ const validatePath = async (path, isSource = true) => {
 const validateServerConnections = async () => {
   serverConnectionErrors.value = []
 
-  for (const serverId of formData.server_ids) {
+  const selectedServers = props.singleServer
+    ? (formData.server_id !== null ? [formData.server_id] : [])
+    : formData.server_ids
+
+  for (const serverId of selectedServers) {
     try {
       const result = await testServerConnection(serverId)
       if (!result.success) {
@@ -406,7 +476,15 @@ const handleSubmit = async () => {
     return
   }
 
-  emit('submit', formData)
+  const payload = {
+    ...formData,
+    server_ids: props.singleServer
+      ? (formData.server_id !== null ? [formData.server_id] : [])
+      : formData.server_ids
+  }
+  delete payload.server_id
+
+  emit('submit', payload)
 }
 
 onMounted(() => {

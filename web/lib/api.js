@@ -355,7 +355,9 @@ export async function checkServerNameExists(name, excludeId = null) {
 
 export async function validateServerPath(serverId, path) {
   const authData = getAuthData()
-  const res = await fetch(`${API_BASE}/servers/${serverId}/validate-path`, {
+  // If serverId is null, validate locally on the backend host
+  const url = serverId == null ? `${API_BASE}/local/validate-path` : `${API_BASE}/servers/${serverId}/validate-path`
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${authData.token}`,
