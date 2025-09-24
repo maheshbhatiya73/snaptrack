@@ -1,8 +1,8 @@
 package services
 
 import (
-	"bufio"
-	"compress/gzip"
+    "bufio"
+    "compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +23,7 @@ import (
 	"github.com/gofiber/websocket/v2"
 	"golang.org/x/crypto/ssh"
 )
+func timePtr(t time.Time) *time.Time { return &t }
 
 type BackupProgressResponse struct {
 	ID             uint        `json:"id"`
@@ -177,34 +178,48 @@ func (bs *BackupService) ExecuteBackupAsync(backup db.Backup) {
 		var server db.Server
 		db.DB.First(&server, serverID)
 
-		if server.Type == "local" {
-			totalSize, checksum, err := bs.runLocalBackup(backup, progress)
-			if err != nil {
-				bs.updateProgress(progress, 0, "failed", fmt.Sprintf("Local backup failed: %v", err))
-				return
-			}
+        if server.Type == "local" {
+            totalSize, checksum, err := bs.runLocalBackup(backup, progress)
+            if err != nil {
+                bs.updateProgress(progress, progress.Progress, "failed", fmt.Sprintf("Local backup failed: %v", err))
+                // Persist backup failed status
+                backup.Status = "failed"
+                backup.CompletedAt = timePtr(time.Now())
+                backup.DurationSec = int64(time.Since(startTime).Seconds())
+                db.DB.Save(&backup)
+                db.DB.Create(&db.Log{Level: "error", Message: fmt.Sprintf("Backup %s failed: %v", backup.Name, err)})
+                return
+            }
 			backup.SizeBytes = totalSize
 			backup.Checksum = &checksum
 
 		} else if server.Type == "remote" {
-			err := bs.runRemoteBackup(backup, server, progress)
-			if err != nil {
-				bs.updateProgress(progress, 0, "failed", fmt.Sprintf("Remote backup failed: %v", err))
-				return
-			}
+            err := bs.runRemoteBackup(backup, server, progress)
+            if err != nil {
+                bs.updateProgress(progress, progress.Progress, "failed", fmt.Sprintf("Remote backup failed: %v", err))
+                // Persist backup failed status
+                backup.Status = "failed"
+                backup.CompletedAt = timePtr(time.Now())
+                backup.DurationSec = int64(time.Since(startTime).Seconds())
+                db.DB.Save(&backup)
+                db.DB.Create(&db.Log{Level: "error", Message: fmt.Sprintf("Backup %s failed: %v", backup.Name, err)})
+                return
+            }
 		}
 	}
 
-	now := time.Now()
-	backup.Status = "completed"
-	backup.CompletedAt = &now
-	backup.DurationSec = int64(now.Sub(startTime).Seconds())
-	db.DB.Save(&backup)
-	db.DB.Create(&db.Log{
-		Level:   "info",
-		Message: fmt.Sprintf("Backup %s completed successfully", backup.Name),
-	})
-	bs.updateProgress(progress, 100, "completed", "Backup completed successfully")
+    now := time.Now()
+    if progress.Status != "failed" { // Do not override failed state
+        backup.Status = "completed"
+        backup.CompletedAt = &now
+        backup.DurationSec = int64(now.Sub(startTime).Seconds())
+        db.DB.Save(&backup)
+        db.DB.Create(&db.Log{
+            Level:   "info",
+            Message: fmt.Sprintf("Backup %s completed successfully", backup.Name),
+        })
+        bs.updateProgress(progress, 100, "completed", "Backup completed successfully")
+    }
 }
 
 func validateRemoteServer(host string, user *string, keyPath *string, port *int, transferType *string) error {
@@ -266,7 +281,18 @@ func (bs *BackupService) runLocalBackup(backup db.Backup, progress *db.BackupPro
 }
 
 func (bs *BackupService) runRemoteBackup(backup db.Backup, server db.Server, progress *db.BackupProgress) error {
-	if backup.FileType == "raw" {
+    // Choose transfer type (default: rsync)
+    transfer := "rsync"
+    if server.TransferType != nil && *server.TransferType != "" {
+        transfer = *server.TransferType
+    }
+
+    if transfer != "rsync" {
+        // For now, only rsync is fully supported with progress; stream a notice
+        bs.updateProgress(progress, progress.Progress, "running", fmt.Sprintf("Transfer type '%s' selected; falling back to rsync for progress support", transfer))
+    }
+
+    if backup.FileType == "raw" {
 		source := backup.Source + "/."
 		dest := backup.Destination
 		total, err := bs.getRsyncTotalSize(source, server, dest)
@@ -276,7 +302,7 @@ func (bs *BackupService) runRemoteBackup(backup db.Backup, server db.Server, pro
 		t := total
 		progress.TotalBytes = &t
 		progress.BytesProcessed = 0
-		err = bs.runRsyncBackup(source, server, dest, progress, 0)
+        err = bs.runRsyncBackup(source, server, dest, progress)
 		if err != nil {
 			return err
 		}
@@ -327,7 +353,7 @@ func (bs *BackupService) runRemoteBackup(backup db.Backup, server db.Server, pro
 		progress.BytesProcessed = archProcessed
 		db.DB.Save(progress)
 		bs.BroadcastProgress(progress)
-		err = bs.runRsyncBackup(archFile, server, backup.Destination, progress, archProcessed)
+        err = bs.runRsyncBackup(archFile, server, backup.Destination, progress)
 		if err != nil {
 			return err
 		}
@@ -691,18 +717,20 @@ func (bs *BackupService) GetAllRunningBackups() ([]db.BackupProgress, error) {
 }
 
 func (bs *BackupService) getRsyncTotalSize(source string, server db.Server, dest string) (int64, error) {
-	args := []string{
-		"-az",
-		"--dry-run",
-		"--stats",
-		source,
-		fmt.Sprintf("%s@%s:%s", *server.SSHUser, server.Host, dest),
-	}
-	cmd := exec.Command("rsync", args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, fmt.Errorf("rsync dry-run failed: %v", err)
-	}
+    sshCmd := fmt.Sprintf("ssh -i %q -p %d -o StrictHostKeyChecking=no", *server.SSHKeyPath, *server.SSHPort)
+    args := []string{
+        "-az",
+        "--dry-run",
+        "--stats",
+        "-e", sshCmd,
+        source,
+        fmt.Sprintf("%s@%s:%s", *server.SSHUser, server.Host, dest),
+    }
+    cmd := exec.Command("rsync", args...)
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        return 0, fmt.Errorf("rsync dry-run failed: %v: %s", err, strings.TrimSpace(string(out)))
+    }
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "Total file size:") {
@@ -715,44 +743,60 @@ func (bs *BackupService) getRsyncTotalSize(source string, server db.Server, dest
 	return 0, fmt.Errorf("could not find total file size in rsync output")
 }
 
-func (bs *BackupService) runRsyncBackup(source string, server db.Server, dest string, progress *db.BackupProgress, offsetBytes int64) error {
-	curr := "overall"
-	progress.CurrentFile = &curr
-	bs.updateProgress(progress, progress.Progress, "running", fmt.Sprintf("Starting transfer to %s", server.Host))
-	args := []string{
-		"-az",
-		"--info=progress2",
-		source,
-		fmt.Sprintf("%s@%s:%s", *server.SSHUser, server.Host, dest),
-	}
-	cmd := exec.Command("rsync", args...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stdout: %v", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start rsync: %v", err)
-	}
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		processed, percent, speed, eta := parseRsyncProgress(line)
-		if percent >= 0 {
-			progress.BytesProcessed = offsetBytes + processed
-			progress.Progress = int(progress.BytesProcessed * 100 / *progress.TotalBytes)
-			progress.SpeedBPS = &speed
-			progress.ETASeconds = &eta
-			progress.UpdatedAt = time.Now()
-			db.DB.Save(progress)
-			bs.BroadcastProgress(progress)
-		}
-	}
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("rsync failed: %v", err)
-	}
-	bs.updateProgress(progress, 100, "completed", "Transfer completed successfully")
-	return nil
+func (bs *BackupService) runRsyncBackup(source string, server db.Server, dest string, progress *db.BackupProgress) error {
+    // Run rsync and stream native output to both terminal and websocket clients
+    sshCmd := fmt.Sprintf("ssh -i %q -p %d -o StrictHostKeyChecking=no", *server.SSHKeyPath, *server.SSHPort)
+    args := []string{
+        "-az",
+        "--progress",
+        "-e", sshCmd,
+        source,
+        fmt.Sprintf("%s@%s:%s", *server.SSHUser, server.Host, dest),
+    }
+
+    cmd := exec.Command("rsync", args...)
+    stdoutPipe, _ := cmd.StdoutPipe()
+    stderrPipe, _ := cmd.StderrPipe()
+
+    if err := cmd.Start(); err != nil {
+        return fmt.Errorf("failed to start rsync: %v", err)
+    }
+
+    // Helper to print and broadcast a line
+    emit := func(line string) {
+        fmt.Println(line)
+        progress.Message = line
+        progress.UpdatedAt = time.Now()
+        db.DB.Save(progress)
+        bs.BroadcastProgress(progress)
+    }
+
+    // Stream stdout lines
+    go func() {
+        scanner := bufio.NewScanner(stdoutPipe)
+        for scanner.Scan() {
+            emit(scanner.Text())
+        }
+    }()
+
+    // Stream stderr lines
+    go func() {
+        scanner := bufio.NewScanner(stderrPipe)
+        for scanner.Scan() {
+            emit(scanner.Text())
+        }
+    }()
+
+    if err := cmd.Wait(); err != nil {
+        bs.updateProgress(progress, progress.Progress, "failed", fmt.Sprintf("rsync failed: %v", err))
+        return err
+    }
+
+    bs.updateProgress(progress, 100, "completed", "Backup completed successfully")
+    return nil
 }
+
+
 
 func parseRsyncProgress(line string) (int64, int, int64, int64) {
 	line = strings.TrimSpace(line)

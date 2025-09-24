@@ -56,6 +56,9 @@ var backupService *services.BackupService
 func RegisterBackupRoutes(app *fiber.App) {
 	backupService = services.NewBackupService()
 
+    // On service start, clean up any stale running states from previous instance
+    cleanupStaleRunning()
+
 	api := app.Group("/api/backups", auth.RequireJWT())
 
 	api.Get("/", listBackups)
@@ -68,6 +71,35 @@ func RegisterBackupRoutes(app *fiber.App) {
 	api.Delete("/:id", deleteBackup)
 	api.Post("/:id/execute", executeBackup)
 	api.Get("/:id/progress", getBackupProgress)
+}
+
+// cleanupStaleRunning marks any "running" progress/backup records as interrupted
+// so the system can be re-executed after a service restart or crash.
+func cleanupStaleRunning() {
+    // Mark running progresses as failed with a restart message
+    var progresses []db.BackupProgress
+    if err := db.DB.Where("status = ?", "running").Find(&progresses).Error; err == nil {
+        for _, p := range progresses {
+            p.Status = "failed"
+            p.Message = "Interrupted due to service restart"
+            p.UpdatedAt = time.Now()
+            db.DB.Save(&p)
+
+            // Reset corresponding backup to pending so it can be started again
+            var b db.Backup
+            if err := db.DB.First(&b, p.BackupID).Error; err == nil {
+                b.Status = "pending"
+                b.UpdatedAt = time.Now()
+                db.DB.Save(&b)
+            }
+        }
+    }
+
+    // Also reset any backups stuck in running without a progress row
+    db.DB.Model(&db.Backup{}).Where("status = ?", "running").Updates(map[string]any{
+        "status":     "pending",
+        "updated_at": time.Now(),
+    })
 }
 
 // WebSocket route for real-time updates
@@ -233,18 +265,27 @@ func executeBackup(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Backup not found"})
 	}
 
-	// Check if backup is already running
-	if backup.Status == "running" {
-		// Check if there's an active progress record
-		var progress db.BackupProgress
-		if err := db.DB.Where("backup_id = ? AND status = ?", backup.ID, "running").First(&progress).Error; err == nil {
-			// There's an active progress record, backup is really running
-			return c.Status(409).JSON(fiber.Map{"error": "Backup is already running"})
-		}
-		// No active progress record, backup is stuck - allow re-execution
-		// Reset any old progress records for this backup
-		db.DB.Where("backup_id = ?", backup.ID).Delete(&db.BackupProgress{})
-	}
+    // Check if backup is already running
+    if backup.Status == "running" {
+        // Check if there's an active progress record
+        var progress db.BackupProgress
+        if err := db.DB.Where("backup_id = ? AND status = ?", backup.ID, "running").First(&progress).Error; err == nil {
+            // If the progress hasn't updated recently, treat it as stale and allow restart
+            if time.Since(progress.UpdatedAt) > 60*time.Second {
+                // Mark existing as failed and reset backup
+                progress.Status = "failed"
+                progress.Message = "Previous run considered stale; restarting"
+                progress.UpdatedAt = time.Now()
+                db.DB.Save(&progress)
+            } else {
+                return c.Status(409).JSON(fiber.Map{"error": "Backup is already running"})
+            }
+        }
+        // No active progress record or stale -> clean old progresses for this backup
+        db.DB.Where("backup_id = ?", backup.ID).Delete(&db.BackupProgress{})
+        backup.Status = "pending"
+        db.DB.Save(&backup)
+    }
 
 	// Update status to running and set start time
 	now := time.Now()

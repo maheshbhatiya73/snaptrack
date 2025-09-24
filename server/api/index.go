@@ -15,6 +15,8 @@ func RegisterRoutes(app *fiber.App) {
         })
     })
     routes.RegisterServerRoutes(app)
+    // Local path validation endpoint (no server id)
+    app.Post("/api/local/validate-path", routes.ValidateLocalPath)
     routes.RegisterBackupRoutes(app)
 }
 

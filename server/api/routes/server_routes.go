@@ -276,3 +276,25 @@ func validatePath(c *fiber.Ctx) error {
 
     return c.JSON(fiber.Map{"valid": true, "message": "Path exists and is accessible"})
 }
+
+// ValidateLocalPath validates a local filesystem path on the server running this backend
+func ValidateLocalPath(c *fiber.Ctx) error {
+    var req struct {
+        Path string `json:"path"`
+    }
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    if strings.TrimSpace(req.Path) == "" {
+        return c.Status(400).JSON(fiber.Map{"error": "path is required"})
+    }
+
+    if _, err := os.Stat(req.Path); os.IsNotExist(err) {
+        return c.JSON(fiber.Map{"valid": false, "message": "Path does not exist"})
+    } else if err != nil {
+        return c.JSON(fiber.Map{"valid": false, "message": fmt.Sprintf("Failed to access path: %v", err)})
+    }
+
+    return c.JSON(fiber.Map{"valid": true, "message": "Path exists"})
+}

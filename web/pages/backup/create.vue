@@ -51,6 +51,7 @@
 
         <BackupForm
           :loading="loading"
+          :singleServer="true"
           @submit="handleSubmit"
           @cancel="goBack"
         />
