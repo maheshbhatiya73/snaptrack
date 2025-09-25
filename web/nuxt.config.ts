@@ -1,9 +1,13 @@
+import { defineNuxtConfig } from 'nuxt/config'
 import tailwindcss from "@tailwindcss/vite";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  build: {
+    transpile: ['vue-chart-3', 'chart.js']
+  },
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     public: {
@@ -11,10 +15,11 @@ export default defineNuxtConfig({
     }
   },
   vite: {
+    optimizeDeps: {
+      include: ['vue-chart-3', 'chart.js']
+    },
     plugins: [
-      tailwindcss({
-        config: './tailwind.config.js'
-      }),
+      tailwindcss(),
     ],
   },
 })
