@@ -449,3 +449,31 @@ export async function deleteProcess(id) {
 
   return res.json().catch(() => ({ success: true }))
 }
+
+// Monitor helpers
+export async function fetchMonitorSnapshot(id) {
+  const authData = getAuthData()
+  const res = await fetch(`${API_BASE}/monitor/${id}/snapshot`, {
+    headers: {
+      'Authorization': `Bearer ${authData.token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || 'Failed to fetch snapshot')
+  }
+  return res.json()
+}
+
+export function monitorWsUrl(id) {
+  const httpBase = process.env.NUXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+  const wsBase = httpBase.replace(/^http/,'ws')
+  return `${wsBase}/api/monitor/${id}/ws`
+}
+
+export function monitorBatchWsUrl() {
+  const httpBase = process.env.NUXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+  const wsBase = httpBase.replace(/^http/,'ws')
+  return `${wsBase}/api/monitor/ws`
+}
