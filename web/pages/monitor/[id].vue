@@ -226,7 +226,8 @@
         </div>
 
         <!-- Process Table -->
-        <div class="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-hidden">
+        <!-- Process Table -->
+        <div class="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg overflow-x-auto">
           <div class="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-800 flex items-center">
               <i class="i-lucide-activity w-5 h-5 mr-2 text-blue-600"></i>
@@ -239,52 +240,46 @@
           </div>
 
           <div v-else class="overflow-x-auto max-h-96">
-            <table class="min-w-full">
-              <thead class="bg-gray-50 sticky top-0">
+            <table class="min-w-full table-auto">
+              <thead class="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    @click="handleSort('pid')">
-                    PID
-                    <i :class="sortBy === 'pid' ? (sortDesc ? 'i-lucide-arrow-down' : 'i-lucide-arrow-up') : ''"
-                      class="w-4 h-4 inline-block ml-1"></i>
-                  </th>
-                  <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    @click="handleSort('name')">
-                    Name
-                    <i :class="sortBy === 'name' ? (sortDesc ? 'i-lucide-arrow-down' : 'i-lucide-arrow-up') : ''"
-                      class="w-4 h-4 inline-block ml-1"></i>
-                  </th>
-                  <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    @click="handleSort('cpu_percent')">
-                    CPU %
-                    <i :class="sortBy === 'cpu_percent' ? (sortDesc ? 'i-lucide-arrow-down' : 'i-lucide-arrow-up') : ''"
-                      class="w-4 h-4 inline-block ml-1"></i>
-                  </th>
-                  <th
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    @click="handleSort('memory_percent')">
-                    Memory %
-                    <i :class="sortBy === 'memory_percent' ? (sortDesc ? 'i-lucide-arrow-down' : 'i-lucide-arrow-up') : ''"
-                      class="w-4 h-4 inline-block ml-1"></i>
-                  </th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('pid')">PID</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('user')">User</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('full_cmdline')">Command</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('cpu_percent')">CPU %</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('mem_percent')">Memory %</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('rss_bytes')">RSS</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('vms_bytes')">VMS</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('start_time')">Start</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer"
+                    @click="handleSort('state')">State</th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
+              <tbody class="bg-white divide-y divide-gray-200 text-sm text-gray-600">
                 <tr v-for="process in sortedProcesses" :key="process.pid">
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ process.pid }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ process.name }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ process.cpu_percent?.toFixed(1) }}%
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ process.memory_percent?.toFixed(1)
-                    }}%</td>
+                  <td class="px-4 py-2">{{ process.pid }}</td>
+                  <td class="px-4 py-2">{{ process.user }}</td>
+                  <td class="px-4 py-2" :title="process.full_cmdline">{{ process.full_cmdline }}</td>
+                  <td class="px-4 py-2">{{ process.cpu_percent?.toFixed(1) }}%</td>
+                  <td class="px-4 py-2">{{ process.mem_percent?.toFixed(1) }}%</td>
+                  <td class="px-4 py-2">{{ human(process.rss_bytes) }}</td>
+                  <td class="px-4 py-2">{{ human(process.vms_bytes) }}</td>
+                  <td class="px-4 py-2">{{ process.start_time }}</td>
+                  <td class="px-4 py-2">{{ process.state }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
+
       </main>
     </div>
   </div>
