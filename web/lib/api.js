@@ -297,37 +297,56 @@ export async function fetchDashboardStats() {
   return res.json()
 }
 
-export async function fetchRecentActivity() {
-  const authData = getAuthData()
-  const res = await fetch(`${API_BASE}/dashboard/activity`, {
-    headers: {
-      'Authorization': `Bearer ${authData.token}`,
-      'Content-Type': 'application/json'
-    }
-  })
+export async function fetchRecentActivity(limit = 10, offset = 0) {
+  try {
+    const authData = getAuthData()
 
-  if (!res.ok) {
-    throw new Error('Failed to fetch recent activity')
+    const res = await fetch(`${API_BASE}/dashboard/recent-activity?limit=${limit}&offset=${offset}`, {
+      headers: {
+        'Authorization': `Bearer ${authData?.token ?? ''}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!res.ok) return []
+
+    return res.json()
+  } catch (err) {
+    console.error('Failed to fetch recent activity:', err)
+    return []
   }
-
-  return res.json()
 }
+
 
 export async function fetchSystemStatus() {
-  const authData = getAuthData()
-  const res = await fetch(`${API_BASE}/dashboard/status`, {
-    headers: {
-      'Authorization': `Bearer ${authData.token}`,
-      'Content-Type': 'application/json'
+  try {
+    const authData = getAuthData()
+
+    const res = await fetch(`${API_BASE}/`, {
+      headers: {
+        'Authorization': `Bearer ${authData?.token ?? ''}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!res.ok) {
+      return { status: 'offline' }
     }
-  })
 
-  if (!res.ok) {
-    throw new Error('Failed to fetch system status')
+    const data = await res.json()
+
+    // if API responds with expected message → online
+    if (data?.message) {
+      return { status: 'online' }
+    }
+
+    return { status: 'offline' }
+  } catch (err) {
+    // Network failure or server down
+    return { status: 'offline' }
   }
-
-  return res.json()
 }
+
 
 export async function fetchServerStatuses() {
   const authData = getAuthData()

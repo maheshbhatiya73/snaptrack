@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"snaptrack/auth"
 	"snaptrack/db"
-	"snaptrack/services"
+	"snaptrack/services/backups"
 	"strconv"
 	"time"
 
@@ -51,10 +51,10 @@ type BackupResponse struct {
 	UpdatedAt    time.Time   `json:"updated_at"`
 }
 
-var backupService *services.BackupService
+var backupService *backups.BackupService
 
 func RegisterBackupRoutes(app *fiber.App) {
-	backupService = services.NewBackupService()
+	backupService = backups.NewBackupService()
 
     // On service start, clean up any stale running states from previous instance
     cleanupStaleRunning()

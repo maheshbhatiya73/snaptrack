@@ -1,4 +1,4 @@
-package services
+package monitor
 
 import (
 	"fmt"
@@ -37,13 +37,13 @@ func sshClient(server db.Server) (*ssh.Client, error) {
 		// Load original known_hosts callback
 		origCallback, err := knownhosts.New(knownHostsPath)
 		if err != nil {
-			log.Warnf("Failed to parse known_hosts: %v, using insecure fallback", err)
+			// log.Warnf("Failed to parse known_hosts: %v, using insecure fallback", err)
 			hostKeyCallback = ssh.InsecureIgnoreHostKey()
 		} else {
 			// Wrap original callback to ignore mismatches safely
 			hostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 				if err := origCallback(hostname, remote, key); err != nil {
-					log.Warnf("Host key mismatch for %s: %v, ignoring for monitoring", hostname, err)
+					// log.Warnf("Host key mismatch for %s: %v, ignoring for monitoring", hostname, err)
 					return nil // ignore mismatch
 				}
 				return nil
@@ -67,7 +67,7 @@ func sshClient(server db.Server) (*ssh.Client, error) {
 
 // runSSHCommand executes a command over SSH and returns the output.
 func runSSHCommand(client *ssh.Client, cmd string) (string, error) {
-	log.Debugf("Running SSH command: %s", cmd)
+	// log.Debugf("Running SSH command: %s", cmd)
 	s, err := client.NewSession()
 	if err != nil {
 		return "", err
@@ -75,9 +75,9 @@ func runSSHCommand(client *ssh.Client, cmd string) (string, error) {
 	defer s.Close()
 
 	out, err := s.CombinedOutput(cmd)
-	log.Debugf("Output: %s", string(out))
+	// log.Debugf("Output: %s", string(out))
 	if err != nil {
-		log.Debugf("Error: %v", err)
+		// log.Debugf("Error: %v", err)
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil

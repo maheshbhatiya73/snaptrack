@@ -48,10 +48,14 @@ type Log struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
 	Level     string         `gorm:"not null" json:"level"`   // info / warning / error
 	Message   string         `gorm:"not null" json:"message"`
-	Context   *string        `json:"context"`
+	Context   *string        `json:"context"`                 // optional string
+	EntityType *string       `json:"entity_type"`             // "backup", "server", etc.
+	EntityID   *uint         `json:"entity_id"`               // optional reference to a backup/server
+	Metadata   datatypes.JSON `json:"metadata"`               // store extra data (JSON)
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
 
 type BackupProgress struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`

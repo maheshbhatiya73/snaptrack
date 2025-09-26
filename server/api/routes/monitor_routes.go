@@ -1,14 +1,15 @@
 package routes
 
 import (
-    "encoding/json"
-    "time"
+	"encoding/json"
+	"time"
 
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/websocket/v2"
-    "log"
-    "snaptrack/db"
-    "snaptrack/services"
+	"log"
+	"snaptrack/db"
+	"snaptrack/services/monitor"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
 )
 
 // GET /api/monitor/:serverID/ws
@@ -29,10 +30,10 @@ func MonitorRoutes(app *fiber.App) {
                     return
                 }
                 // Collect metrics for each server
-                type metricsList []services.ServerMetrics
+                type metricsList []monitor.ServerMetrics
                 var out metricsList
                 for _, s := range servers {
-                    out = append(out, services.CollectServerMetrics(s))
+                    out = append(out, monitor.CollectServerMetrics(s))
                 }
                 if b, err := json.Marshal(out); err == nil {
                     if err := c.WriteMessage(websocket.TextMessage, b); err != nil {
@@ -61,7 +62,7 @@ func MonitorRoutes(app *fiber.App) {
 		for {
 			select {
 			case <-ticker.C:
-				metrics := services.CollectServerMetrics(server)
+				metrics := monitor.CollectServerMetrics(server)
                 if err := c.WriteMessage(websocket.TextMessage, metrics.JSON()); err != nil {
                     log.Println("[ws] write error (single):", err)
 					return
