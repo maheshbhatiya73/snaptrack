@@ -1,4 +1,4 @@
-package services
+package monitor
 
 import (
 	"bufio"
@@ -125,25 +125,38 @@ func readDiskIO() (read, write uint64, err error) {
 	return 0, 0, fmt.Errorf("no disk stats found")
 }
 
-// readNetIO returns network sent and received bytes.
 func readNetIO() (sent, recv uint64, err error) {
-	data, err := os.ReadFile("/proc/net/dev")
-	if err != nil {
-		return 0, 0, err
-	}
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines[2:] { // Skip headers
-		fields := strings.Fields(strings.TrimLeft(line, " "))
-		if len(fields) > 16 || strings.HasPrefix(fields[0], "lo:") {
-			continue
-		}
-		r, _ := strconv.ParseUint(fields[1], 10, 64) // Recv bytes
-		s, _ := strconv.ParseUint(fields[9], 10, 64) // Sent bytes
-		recv += r
-		sent += s
-	}
-	return sent, recv, nil
+    data, err := os.ReadFile("/proc/net/dev")
+    if err != nil {
+        return 0, 0, err
+    }
+
+    lines := strings.Split(string(data), "\n")
+    if len(lines) < 3 {
+        return 0, 0, fmt.Errorf("unexpected /proc/net/dev format")
+    }
+
+    for _, line := range lines[2:] { // Skip headers
+        line = strings.TrimSpace(line)
+        if line == "" || strings.HasPrefix(line, "lo:") {
+            continue
+        }
+
+        fields := strings.Fields(line)
+        if len(fields) < 10 {
+            log.Debugf("Skipping malformed line in /proc/net/dev: %q", line)
+            continue
+        }
+
+        r, _ := strconv.ParseUint(fields[1], 10, 64) // Recv bytes
+        s, _ := strconv.ParseUint(fields[9], 10, 64) // Sent bytes
+        recv += r
+        sent += s
+    }
+
+    return sent, recv, nil
 }
+
 
 // readLoadAverages reads system load averages (1, 5, 15 minutes).
 func readLoadAverages() (load1, load5, load15 float64, err error) {
