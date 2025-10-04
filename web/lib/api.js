@@ -1,7 +1,7 @@
-const API_BASE = `${process.env.NUXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api`
+let API_BASE = '/api'
 
 export async function loginUser({ username, password }) {
-  const res = await fetch(`${API_BASE}/login`, {
+  const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -13,7 +13,7 @@ export async function loginUser({ username, password }) {
     throw new Error(data.message || 'Login failed')
   }
 
-  return data 
+  return data
 }
 
 export function logoutUser() {
@@ -64,12 +64,12 @@ export async function fetchBackup(id) {
 
 export async function createBackup(backupData) {
   const authData = getAuthData()
-  
+
   const payload = {
     ...backupData,
     server_ids: Array.isArray(backupData.server_ids) ? backupData.server_ids : []
   }
-  
+
   const res = await fetch(`${API_BASE}/backups`, {
     method: 'POST',
     headers: {
@@ -89,12 +89,12 @@ export async function createBackup(backupData) {
 
 export async function updateBackup(id, backupData) {
   const authData = getAuthData()
-  
+
   const payload = {
     ...backupData,
     server_ids: Array.isArray(backupData.server_ids) ? backupData.server_ids : []
   }
-  
+
   const res = await fetch(`${API_BASE}/backups/${id}`, {
     method: 'PUT',
     headers: {
@@ -487,12 +487,12 @@ export async function fetchMonitorSnapshot(id) {
 
 export function monitorWsUrl(id) {
   const httpBase = process.env.NUXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-  const wsBase = httpBase.replace(/^http/,'ws')
+  const wsBase = httpBase.replace(/^http/, 'ws')
   return `${wsBase}/api/monitor/${id}/ws`
 }
 
 export function monitorBatchWsUrl() {
   const httpBase = process.env.NUXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-  const wsBase = httpBase.replace(/^http/,'ws')
+  const wsBase = httpBase.replace(/^http/, 'ws')
   return `${wsBase}/api/monitor/ws`
 }

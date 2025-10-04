@@ -1,0 +1,1 @@
+import{e as t,f as o,c as a,o as r}from"#entry";import{i as s}from"./EuvIHkR0.js";const l={__name:"index",setup(c){const e=o();return t(()=>{s()?e.replace("/dashboard"):e.replace("/auth/login")}),(n,i)=>(r(),a("div"))}};export{l as default};
